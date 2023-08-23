@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import com.pholser.junit.quickcheck.generator.GenerationStatus;
 import com.pholser.junit.quickcheck.generator.Generator;
 import com.pholser.junit.quickcheck.internal.ParameterTypeContext;
@@ -112,6 +111,8 @@ public class FuzzStatement extends Statement {
                 try {
                     Object[] args;
                     try {
+                        // sleep a second
+                        Thread.sleep(1000);
 
                         // Generate input values
                         StreamBackedRandom randomFile = new StreamBackedRandom(guidance.getInput(), Long.BYTES);
