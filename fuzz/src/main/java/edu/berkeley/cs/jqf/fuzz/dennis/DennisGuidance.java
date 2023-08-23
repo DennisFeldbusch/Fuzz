@@ -629,8 +629,8 @@ public class DennisGuidance implements Guidance {
             initializePopulation();
         }
 
-        mutate(1);
-        crossover(1);
+        mutate(0.5);
+        crossover(0.5);
 
         // reset fitness
         for (Entry<LinearInput, Integer> entry: this.population.entrySet()) {
