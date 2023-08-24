@@ -112,7 +112,7 @@ public class FuzzStatement extends Statement {
                     Object[] args;
                     try {
                         // sleep a second
-                        Thread.sleep(1000);
+                        //Thread.sleep(1000);
 
                         // Generate input values
                         StreamBackedRandom randomFile = new StreamBackedRandom(guidance.getInput(), Long.BYTES);

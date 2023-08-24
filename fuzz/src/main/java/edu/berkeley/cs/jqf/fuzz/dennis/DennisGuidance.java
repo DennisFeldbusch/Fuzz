@@ -47,6 +47,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.eclipse.collections.api.list.primitive.IntList;
+
 import edu.berkeley.cs.jqf.fuzz.guidance.TimeoutException;
 import edu.berkeley.cs.jqf.fuzz.ei.ZestGuidance.Input;
 import edu.berkeley.cs.jqf.fuzz.guidance.Guidance;
@@ -55,9 +57,11 @@ import edu.berkeley.cs.jqf.fuzz.guidance.Result;
 import edu.berkeley.cs.jqf.fuzz.util.Coverage;
 import edu.berkeley.cs.jqf.fuzz.util.CoverageFactory;
 import edu.berkeley.cs.jqf.fuzz.util.FastNonCollidingCoverage;
+import edu.berkeley.cs.jqf.fuzz.util.Hashing;
 import edu.berkeley.cs.jqf.fuzz.util.ICoverage;
 import edu.berkeley.cs.jqf.fuzz.util.IOUtils;
 import edu.berkeley.cs.jqf.instrument.tracing.FastCoverageSnoop;
+import edu.berkeley.cs.jqf.instrument.tracing.events.BranchEvent;
 import edu.berkeley.cs.jqf.instrument.tracing.events.TraceEvent;
 import janala.instrument.FastCoverageListener;
 import java.util.Map.Entry;
@@ -133,7 +137,10 @@ public class DennisGuidance implements Guidance {
     /** Cumulative coverage statistics. */
     protected ICoverage totalCoverage = CoverageFactory.newInstance();
 
-    /** Cumulative coverage for valid inputs. */
+    /** Cumulative coverage updated on generation  */
+    protected ICoverage generationCoverage = CoverageFactory.newInstance();
+    
+    /** just for testing purpose */
     protected ICoverage validCoverage = CoverageFactory.newInstance();
 
     /** The maximum number of keys covered by any single input found so far. */
@@ -237,7 +244,7 @@ public class DennisGuidance implements Guidance {
     /** Whether to steal responsibility from old inputs (this increases computation cost). */
     protected final boolean STEAL_RESPONSIBILITY = Boolean.getBoolean("jqf.ei.STEAL_RESPONSIBILITY");
 
-    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 8);
+    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 10);
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 20);
 
@@ -249,6 +256,8 @@ public class DennisGuidance implements Guidance {
     protected LinearInput candidate;
 
     protected int counter;
+
+    private final int COVERAGE_MAP_SIZE = (1 << 16) - 1; // Minus one to reduce collisions
 
     /**
      * Creates a new Zest guidance instance with optional duration,
@@ -508,6 +517,7 @@ public class DennisGuidance implements Guidance {
                 console.printf("Valid coverage:       %,d branches (%.2f%% of map)\n", this.branchCount, nonZeroValidFraction);
                 console.printf("Total size:           %,d branches\n", totalCoverage.size());
                 console.printf("Generation:           %,d \n", this.counter);
+                console.printf("Generation coverage:  %,d\n", generationCoverage.getNonZeroCount());
             }
         }
 
@@ -579,7 +589,6 @@ public class DennisGuidance implements Guidance {
      * @param crossoverRate
      */
     protected void crossover(double crossoverRate) {
-        System.out.println("Crossover");
         int numberOfCrossovers = (int) Math.round(crossoverRate * this.population.size());
         for (int i = 0; i < numberOfCrossovers; i++) {
             int firstIndex = (int) (Math.random() * this.population.size());
@@ -607,9 +616,40 @@ public class DennisGuidance implements Guidance {
                 newSecondCandidate.values.add(firstCandidate.values.get(j));
             }
 
-            this.population.keySet().toArray()[firstIndex] = newFirstCandidate;
-            this.population.keySet().toArray()[secondIndex] = newSecondCandidate;
+            this.population.remove(firstCandidate);
+            this.population.put(newFirstCandidate, 0);
+
+            this.population.remove(secondCandidate);
+            this.population.put(newSecondCandidate, 0);
         } 
+    }
+
+    protected void fitnessProportionalSelection() {
+
+        // create a deep copy of the population
+        HashMap<LinearInput, Integer> populationCopy = new HashMap<>();
+        for (Entry<LinearInput, Integer> entry: this.population.entrySet()) {
+            populationCopy.put(entry.getKey(), entry.getValue());
+        }
+
+        int totalFitness = 0;
+
+        for (Entry<LinearInput, Integer> entry: populationCopy.entrySet()) {
+            totalFitness += entry.getValue();
+            entry.setValue(totalFitness);
+        }
+
+        // select a random entry with respect to the corresponding fitness compared to the total fitness
+        for (int i = 0; i < populationCopy.size(); i++) {
+            int randomFitness = (int) (Math.random() * totalFitness);
+            for (Entry<LinearInput, Integer> entry: populationCopy.entrySet()) {
+                if (randomFitness <= entry.getValue()) {
+                    //System.out.println("Selected: " + entry.getKey().toString() + " with fitness: " + entry.getValue());
+                    this.population.put(entry.getKey(), 0);
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -629,8 +669,12 @@ public class DennisGuidance implements Guidance {
             initializePopulation();
         }
 
-        mutate(0.5);
-        crossover(0.5);
+        // works
+        this.generationCoverage = totalCoverage.copy();
+
+        fitnessProportionalSelection();
+        mutate(0.1);
+        crossover(0.1);
 
         // reset fitness
         for (Entry<LinearInput, Integer> entry: this.population.entrySet()) {
@@ -652,7 +696,14 @@ public class DennisGuidance implements Guidance {
      *
      */
     protected void calculateFitness() {
-        
+
+        IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
+        int fitness = newCoverage.size();
+        if (fitness == 0) {
+            fitness = 1;
+        }
+
+        updatePopulationList(this.candidate, fitness);
     }
 
     /**
@@ -721,6 +772,8 @@ public class DennisGuidance implements Guidance {
 
     @Override
     public InputStream getInput() throws GuidanceException {
+        totalCoverage.updateBits(runCoverage);
+        this.runCoverage.clear();
         this.candidate = getCandidateFromPopulation();
         conditionallySynchronize(multiThreaded, () -> {
 
@@ -756,17 +809,15 @@ public class DennisGuidance implements Guidance {
 
             this.runStart = null;
             boolean valid = result == Result.SUCCESS;
+            calculateFitness();
 
             if (valid) {
                 // Increment valid counter
                 numValid++;
             }
 
-            updatePopulationList(this.candidate, 1);
-
             this.numTrials++;
-            //displayStats(false);
-            //System.out.println(totalCoverage.toString());
+            displayStats(false);
         });
 
     }
@@ -792,7 +843,7 @@ public class DennisGuidance implements Guidance {
     protected void handleEvent(TraceEvent e) {
         conditionallySynchronize(multiThreaded, () -> {
             // Collect totalCoverage
-            ((Coverage) totalCoverage).handleEvent(e);
+            ((Coverage) runCoverage).handleEvent(e);
             // Check for possible timeouts every so often
             if (this.singleRunTimeoutMillis > 0 &&
                     this.runStart != null && (++this.branchCount) % 10_000 == 0) {
@@ -832,7 +883,8 @@ public class DennisGuidance implements Guidance {
             this.values = new ArrayList<>();
             //fill arraylist with random values in random size
             for (int i = 0; i < random; i++) {
-                this.values.add((int) (Math.random() * 256));
+                int randomValue = (int) (Math.random() * 256);
+                this.values.add(randomValue);
             }
 
         }
@@ -844,9 +896,12 @@ public class DennisGuidance implements Guidance {
 
         public void mutate() {
             // mutating
+            if (this.values.size() == 0) {
+                return;
+            }
             int index = (int) (Math.random() * this.values.size());
             Integer gene = (int) (Math.random() * 256);
-            values.set(index, gene);
+            this.values.set(index, gene);
         }
 
         @Override
@@ -870,8 +925,8 @@ public class DennisGuidance implements Guidance {
                 requested++;
                 // infoLog("Returning old byte at key=%d, total requested=%d", key, requested);
                 //System.out.println("Value: " + values.get(key));
-                return values.get(key);
-            }
+                return this.values.get(key);
+            } 
 
             // Handle end of stream
             if (GENERATE_EOF_WHEN_OUT) {
@@ -887,8 +942,18 @@ public class DennisGuidance implements Guidance {
         }
 
         @Override
+        public String toString() {
+            String ret = "";
+            for (int i = 0; i < this.values.size(); i++) {
+                ret += this.values.get(i) + " ";
+            }
+            
+            return ret;
+        }
+
+        @Override
         public int size() {
-            return values.size();
+            return this.values.size();
         }
 
         /**
