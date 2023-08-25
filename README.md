@@ -1,3 +1,15 @@
+# JQF + Genetic Algorithm
+
+In order to test the newly implemented Fuzzer based on a genetic algorithm: 
+
+```bash
+# build the project
+./setup.sh
+
+# start the new fuzzer (jqf-dennis)
+/path/to/bin/jqf-dennis -c $(scripts/examples_classpath.sh) edu.berkeley.cs.jqf.examples.ant.ProjectBuilderTest testWithString
+```
+
 # JQF + Zest: Semantic Fuzzing for Java
 [![Build](https://github.com/rohanpadhye/JQF/actions/workflows/ci.yml/badge.svg)](https://github.com/rohanpadhye/JQF/actions/workflows/ci.yml)
 
