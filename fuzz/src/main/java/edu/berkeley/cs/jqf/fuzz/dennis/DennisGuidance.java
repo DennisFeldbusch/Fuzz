@@ -38,14 +38,16 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+
 
 import org.eclipse.collections.api.list.primitive.IntList;
 
@@ -57,14 +59,11 @@ import edu.berkeley.cs.jqf.fuzz.guidance.Result;
 import edu.berkeley.cs.jqf.fuzz.util.Coverage;
 import edu.berkeley.cs.jqf.fuzz.util.CoverageFactory;
 import edu.berkeley.cs.jqf.fuzz.util.FastNonCollidingCoverage;
-import edu.berkeley.cs.jqf.fuzz.util.Hashing;
 import edu.berkeley.cs.jqf.fuzz.util.ICoverage;
 import edu.berkeley.cs.jqf.fuzz.util.IOUtils;
 import edu.berkeley.cs.jqf.instrument.tracing.FastCoverageSnoop;
-import edu.berkeley.cs.jqf.instrument.tracing.events.BranchEvent;
 import edu.berkeley.cs.jqf.instrument.tracing.events.TraceEvent;
 import janala.instrument.FastCoverageListener;
-import java.util.Map.Entry;
 
 /**
  * A guidance that performs coverage-guided fuzzing using two coverage maps,
@@ -103,16 +102,25 @@ public class DennisGuidance implements Guidance {
     /** The directory where saved inputs are saved. */
     protected File savedFailuresDirectory;
 
-    /** The directory where all generated inputs are logged in sub-directories (if enabled). */
+    /**
+     * The directory where all generated inputs are logged in sub-directories (if
+     * enabled).
+     */
     protected File allInputsDirectory;
 
-    /** Index of currentInput in the savedInputs -- valid after seeds are processed (OK if this is inaccurate). */
+    /**
+     * Index of currentInput in the savedInputs -- valid after seeds are processed
+     * (OK if this is inaccurate).
+     */
     protected int currentParentInputIdx = 0;
 
     /** Number of mutated inputs generated from currentInput. */
     protected int numChildrenGeneratedForCurrentParentInput = 0;
 
-    /** Number of cycles completed (i.e. how many times we've reset currentParentInputIdx to 0. */
+    /**
+     * Number of cycles completed (i.e. how many times we've reset
+     * currentParentInputIdx to 0.
+     */
     protected int cyclesCompleted = 0;
 
     /** Number of favored inputs in the last cycle. */
@@ -121,10 +129,14 @@ public class DennisGuidance implements Guidance {
     /** Blind fuzzing -- if true then the queue is always empty. */
     protected boolean blind;
 
-    /** Validity fuzzing -- if true then save valid inputs that increase valid coverage */
+    /**
+     * Validity fuzzing -- if true then save valid inputs that increase valid
+     * coverage
+     */
     protected boolean validityFuzzing;
 
-    /** Number of saved inputs.
+    /**
+     * Number of saved inputs.
      *
      * This is usually the same as savedInputs.size(),
      * but we do not really save inputs in TOTALLY_RANDOM mode.
@@ -137,9 +149,9 @@ public class DennisGuidance implements Guidance {
     /** Cumulative coverage statistics. */
     protected ICoverage totalCoverage = CoverageFactory.newInstance();
 
-    /** Cumulative coverage updated on generation  */
+    /** Cumulative coverage updated on generation */
     protected ICoverage generationCoverage = CoverageFactory.newInstance();
-    
+
     /** just for testing purpose */
     protected ICoverage validCoverage = CoverageFactory.newInstance();
 
@@ -184,7 +196,10 @@ public class DennisGuidance implements Guidance {
     /** The file contianing the coverage information */
     protected File coverageFile;
 
-    /** Use libFuzzer like output instead of AFL like stats screen (https://llvm.org/docs/LibFuzzer.html#output) **/
+    /**
+     * Use libFuzzer like output instead of AFL like stats screen
+     * (https://llvm.org/docs/LibFuzzer.html#output)
+     **/
     protected final boolean LIBFUZZER_COMPAT_OUTPUT = Boolean.getBoolean("jqf.ei.LIBFUZZER_COMPAT_OUTPUT");
 
     /** Whether to hide fuzzing statistics **/
@@ -212,7 +227,10 @@ public class DennisGuidance implements Guidance {
     /** The first thread in the application, which usually runs the test method. */
     protected Thread firstThread;
 
-    /** Whether the application has more than one thread running coverage-instrumented code */
+    /**
+     * Whether the application has more than one thread running
+     * coverage-instrumented code
+     */
     protected boolean multiThreaded = false;
 
     // ------------- FUZZING HEURISTICS ------------
@@ -223,13 +241,18 @@ public class DennisGuidance implements Guidance {
     /** Max input size to generate. */
     protected final int MAX_INPUT_SIZE = Integer.getInteger("jqf.ei.MAX_INPUT_SIZE", 10240);
 
-    /** Whether to generate EOFs when we run out of bytes in the input, instead of randomly generating new bytes. **/
+    /**
+     * Whether to generate EOFs when we run out of bytes in the input, instead of
+     * randomly generating new bytes.
+     **/
     protected final boolean GENERATE_EOF_WHEN_OUT = Boolean.getBoolean("jqf.ei.GENERATE_EOF_WHEN_OUT");
 
     /** Baseline number of mutated children to produce from a given parent input. */
     protected final int NUM_CHILDREN_BASELINE = 50;
 
-    /** Multiplication factor for number of children to produce for favored inputs. */
+    /**
+     * Multiplication factor for number of children to produce for favored inputs.
+     */
     protected final int NUM_CHILDREN_MULTIPLIER_FAVORED = 20;
 
     /** Mean number of mutations to perform in each round. */
@@ -238,41 +261,48 @@ public class DennisGuidance implements Guidance {
     /** Mean number of contiguous bytes to mutate in each mutation. */
     protected final double MEAN_MUTATION_SIZE = 4.0; // Bytes
 
-    /** Whether to save inputs that only add new coverage bits (but no new responsibilities). */
+    /**
+     * Whether to save inputs that only add new coverage bits (but no new
+     * responsibilities).
+     */
     protected final boolean DISABLE_SAVE_NEW_COUNTS = Boolean.getBoolean("jqf.ei.DISABLE_SAVE_NEW_COUNTS");
 
-    /** Whether to steal responsibility from old inputs (this increases computation cost). */
+    /**
+     * Whether to steal responsibility from old inputs (this increases computation
+     * cost).
+     */
     protected final boolean STEAL_RESPONSIBILITY = Boolean.getBoolean("jqf.ei.STEAL_RESPONSIBILITY");
 
-    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 10);
+    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 1000);
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 20);
 
+    protected Integer genCounter = 0;
+
     protected Coverage coverage = new Coverage();
 
-    //protected HashMap<Input<?>, Integer> population = new HashMap<>();
-    protected HashMap<LinearInput, Integer> population = new HashMap<>();
+    protected ArrayList<LinearInput> population = new ArrayList<>();
 
     protected LinearInput candidate;
 
     protected int counter;
 
-    private final int COVERAGE_MAP_SIZE = (1 << 16) - 1; // Minus one to reduce collisions
-
     /**
      * Creates a new Zest guidance instance with optional duration,
      * optional trial limit, and possibly deterministic PRNG.
      *
-     * @param testName the name of test to display on the status screen
-     * @param duration the amount of time to run fuzzing for, where
-     *                 {@code null} indicates unlimited time.
-     * @param trials   the number of trials for which to run fuzzing, where
-     *                 {@code null} indicates unlimited trials.
-     * @param outputDirectory the directory where fuzzing results will be written
-     * @param sourceOfRandomness      a pseudo-random number generator
+     * @param testName           the name of test to display on the status screen
+     * @param duration           the amount of time to run fuzzing for, where
+     *                           {@code null} indicates unlimited time.
+     * @param trials             the number of trials for which to run fuzzing,
+     *                           where
+     *                           {@code null} indicates unlimited trials.
+     * @param outputDirectory    the directory where fuzzing results will be written
+     * @param sourceOfRandomness a pseudo-random number generator
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, Random sourceOfRandomness) throws IOException {
+    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory,
+            Random sourceOfRandomness) throws IOException {
         this.random = sourceOfRandomness;
         this.testName = testName;
         this.maxDurationMillis = duration != null ? duration.toMillis() : Long.MAX_VALUE;
@@ -282,7 +312,7 @@ public class DennisGuidance implements Guidance {
         this.validityFuzzing = !Boolean.getBoolean("jqf.ei.DISABLE_VALIDITY_FUZZING");
         prepareOutputDirectory();
 
-        if(this.runCoverage instanceof FastCoverageListener){
+        if (this.runCoverage instanceof FastCoverageListener) {
             FastCoverageSnoop.setFastCoverageListener((FastCoverageListener) this.runCoverage);
         }
 
@@ -302,21 +332,24 @@ public class DennisGuidance implements Guidance {
      * Creates a new Zest guidance instance with seed input files and optional
      * duration, optional trial limit, an possibly deterministic PRNG.
      *
-     * @param testName the name of test to display on the status screen
-     * @param duration the amount of time to run fuzzing for, where
-     *                 {@code null} indicates unlimited time.
-     * @param trials   the number of trials for which to run fuzzing, where
-     *                 {@code null} indicates unlimited trials.
-     * @param outputDirectory the directory where fuzzing results will be written
-     * @param seedInputFiles one or more input files to be used as initial inputs
-     * @param sourceOfRandomness      a pseudo-random number generator
+     * @param testName           the name of test to display on the status screen
+     * @param duration           the amount of time to run fuzzing for, where
+     *                           {@code null} indicates unlimited time.
+     * @param trials             the number of trials for which to run fuzzing,
+     *                           where
+     *                           {@code null} indicates unlimited trials.
+     * @param outputDirectory    the directory where fuzzing results will be written
+     * @param seedInputFiles     one or more input files to be used as initial
+     *                           inputs
+     * @param sourceOfRandomness a pseudo-random number generator
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, File[] seedInputFiles, Random sourceOfRandomness) throws IOException {
+    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, File[] seedInputFiles,
+            Random sourceOfRandomness) throws IOException {
         this(testName, duration, trials, outputDirectory, sourceOfRandomness);
         if (seedInputFiles != null) {
             for (File seedInputFile : seedInputFiles) {
-                //seedInputs.add(new SeedInput(seedInputFile));
+                // seedInputs.add(new SeedInput(seedInputFile));
             }
         }
     }
@@ -325,32 +358,38 @@ public class DennisGuidance implements Guidance {
      * Creates a new Zest guidance instance with seed input directory and optional
      * duration, optional trial limit, an possibly deterministic PRNG.
      *
-     * @param testName the name of test to display on the status screen
-     * @param duration the amount of time to run fuzzing for, where
-     *                 {@code null} indicates unlimited time.
-     * @param trials   the number of trials for which to run fuzzing, where
-     *                 {@code null} indicates unlimited trials.
-     * @param outputDirectory the directory where fuzzing results will be written
-     * @param seedInputDir the directory containing one or more input files to be used as initial inputs
-     * @param sourceOfRandomness      a pseudo-random number generator
+     * @param testName           the name of test to display on the status screen
+     * @param duration           the amount of time to run fuzzing for, where
+     *                           {@code null} indicates unlimited time.
+     * @param trials             the number of trials for which to run fuzzing,
+     *                           where
+     *                           {@code null} indicates unlimited trials.
+     * @param outputDirectory    the directory where fuzzing results will be written
+     * @param seedInputDir       the directory containing one or more input files to
+     *                           be used as initial inputs
+     * @param sourceOfRandomness a pseudo-random number generator
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, File seedInputDir, Random sourceOfRandomness) throws IOException {
-        this(testName, duration, trials, outputDirectory, IOUtils.resolveInputFileOrDirectory(seedInputDir), sourceOfRandomness);
+    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, File seedInputDir,
+            Random sourceOfRandomness) throws IOException {
+        this(testName, duration, trials, outputDirectory, IOUtils.resolveInputFileOrDirectory(seedInputDir),
+                sourceOfRandomness);
     }
 
     /**
      * Creates a new Zest guidance instance with seed inputs and
      * optional duration.
      *
-     * @param testName the name of test to display on the status screen
-     * @param duration the amount of time to run fuzzing for, where
-     *                 {@code null} indicates unlimited time.
+     * @param testName        the name of test to display on the status screen
+     * @param duration        the amount of time to run fuzzing for, where
+     *                        {@code null} indicates unlimited time.
      * @param outputDirectory the directory where fuzzing results will be written
-     * @param seedInputDir the directory containing one or more input files to be used as initial inputs
+     * @param seedInputDir    the directory containing one or more input files to be
+     *                        used as initial inputs
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, File outputDirectory, File seedInputDir) throws IOException {
+    public DennisGuidance(String testName, Duration duration, File outputDirectory, File seedInputDir)
+            throws IOException {
         this(testName, duration, null, outputDirectory, seedInputDir, new Random());
     }
 
@@ -358,9 +397,9 @@ public class DennisGuidance implements Guidance {
      * Creates a new Zest guidance instance with seed inputs and
      * optional duration.
      *
-     * @param testName the name of test to display on the status screen
-     * @param duration the amount of time to run fuzzing for, where
-     *                 {@code null} indicates unlimited time.
+     * @param testName        the name of test to display on the status screen
+     * @param duration        the amount of time to run fuzzing for, where
+     *                        {@code null} indicates unlimited time.
      * @param outputDirectory the directory where fuzzing results will be written
      * @throws IOException if the output directory could not be prepared
      */
@@ -372,13 +411,14 @@ public class DennisGuidance implements Guidance {
      * Creates a new Zest guidance instance with seed inputs and
      * optional duration.
      *
-     * @param testName the name of test to display on the status screen
-     * @param duration the amount of time to run fuzzing for, where
-     *                 {@code null} indicates unlimited time.
+     * @param testName        the name of test to display on the status screen
+     * @param duration        the amount of time to run fuzzing for, where
+     *                        {@code null} indicates unlimited time.
      * @param outputDirectory the directory where fuzzing results will be written
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, File outputDirectory, File[] seedFiles) throws IOException {
+    public DennisGuidance(String testName, Duration duration, File outputDirectory, File[] seedFiles)
+            throws IOException {
         this(testName, duration, null, outputDirectory, seedFiles, new Random());
     }
 
@@ -401,7 +441,8 @@ public class DennisGuidance implements Guidance {
         this.coverageFile = new File(outputDirectory, "coverage_hash");
 
         // Delete everything that we may have created in a previous run.
-        // Trying to stay away from recursive delete of parent output directory in case there was a
+        // Trying to stay away from recursive delete of parent output directory in case
+        // there was a
         // typo and that was not a directory we wanted to nuke.
         // We also do not check if the deletes are actually successful.
         statsFile.delete();
@@ -418,8 +459,11 @@ public class DennisGuidance implements Guidance {
     }
 
     protected String getStatNames() {
+        return "elapsed_time\tbranches_covered";
+        /* 
         return "# unix_time, cycles_done, cur_path, paths_total, pending_total, " +
-            "pending_favs, map_size, unique_crashes, unique_hangs, max_depth, execs_per_sec, valid_inputs, invalid_inputs, valid_cov, all_covered_probes, valid_covered_probes";
+                "pending_favs, map_size, unique_crashes, unique_hangs, max_depth, execs_per_sec, valid_inputs, invalid_inputs, valid_cov, all_covered_probes, valid_covered_probes";
+                */
     }
 
     /* Writes a line of text to a given log file. */
@@ -456,7 +500,8 @@ public class DennisGuidance implements Guidance {
         if (hours > 0 || minutes > 0) {
             result += minutes + "m ";
         }
-        result += seconds + "s";
+        result += seconds + "";
+        //result += seconds + "s";
         return result;
     }
 
@@ -471,7 +516,7 @@ public class DennisGuidance implements Guidance {
         long interlvalTrials = numTrials - lastNumTrials;
         long intervalExecsPerSec = interlvalTrials * 1000L;
         double intervalExecsPerSecDouble = interlvalTrials * 1000.0;
-        if(intervalMilliseconds != 0) {
+        if (intervalMilliseconds != 0) {
             intervalExecsPerSec = interlvalTrials * 1000L / intervalMilliseconds;
             intervalExecsPerSecDouble = interlvalTrials * 1000.0 / intervalMilliseconds;
         }
@@ -488,7 +533,8 @@ public class DennisGuidance implements Guidance {
 
         if (console != null) {
             if (LIBFUZZER_COMPAT_OUTPUT) {
-                console.printf("#%,d\tNEW\tcov: %,d exec/s: %,d L: %,d\n", numTrials, nonZeroValidCount, intervalExecsPerSec, 5);
+                console.printf("#%,d\tNEW\tcov: %,d exec/s: %,d L: %,d\n", numTrials, nonZeroValidCount,
+                        intervalExecsPerSec, 5);
             } else if (!QUIET_MODE) {
                 console.printf("\033[2J");
                 console.printf("\033[H");
@@ -504,7 +550,8 @@ public class DennisGuidance implements Guidance {
                 console.printf("Instrumentation:      %s\n", instrumentationType);
                 console.printf("Results directory:    %s\n", this.outputDirectory.getAbsolutePath());
                 console.printf("Elapsed time:         %s (%s)\n", millisToDuration(elapsedMilliseconds),
-                        maxDurationMillis == Long.MAX_VALUE ? "no time limit" : ("max " + millisToDuration(maxDurationMillis)));
+                        maxDurationMillis == Long.MAX_VALUE ? "no time limit"
+                                : ("max " + millisToDuration(maxDurationMillis)));
                 console.printf("Number of executions: %,d (%s)\n", numTrials,
                         maxTrials == Long.MAX_VALUE ? "no trial limit" : ("max " + maxTrials));
                 console.printf("Valid inputs:         %,d (%.2f%%)\n", numValid, numValid * 100.0 / numTrials);
@@ -512,19 +559,24 @@ public class DennisGuidance implements Guidance {
                 console.printf("Unique failures:      %,d\n", uniqueFailures.size());
                 console.printf("Queue size:           %,d (%,d favored last cycle)\n", 5, numFavoredLastCycle);
                 console.printf("Current parent input: %s\n", "currentParentInputDesc");
-                console.printf("Execution speed:      %,d/sec now | %,d/sec overall\n", intervalExecsPerSec, execsPerSec);
+                console.printf("Execution speed:      %,d/sec now | %,d/sec overall\n", intervalExecsPerSec,
+                        execsPerSec);
                 console.printf("Total coverage:       %,d branches (%.2f%% of map)\n", nonZeroCount, nonZeroFraction);
-                console.printf("Valid coverage:       %,d branches (%.2f%% of map)\n", this.branchCount, nonZeroValidFraction);
+                console.printf("Valid coverage:       %,d branches (%.2f%% of map)\n", this.branchCount,
+                        nonZeroValidFraction);
                 console.printf("Total size:           %,d branches\n", totalCoverage.size());
                 console.printf("Generation:           %,d \n", this.counter);
                 console.printf("Generation coverage:  %,d\n", generationCoverage.getNonZeroCount());
             }
         }
 
+        String plotData = String.format("%s\t%d", millisToDuration(elapsedMilliseconds), nonZeroCount);
+        /* 
         String plotData = String.format("%d, %d, %d, %d, %d, %d, %.2f%%, %d, %d, %d, %.2f, %d, %d, %.2f%%, %d, %d",
                 TimeUnit.MILLISECONDS.toSeconds(now.getTime()), cyclesCompleted, currentParentInputIdx,
                 numSavedInputs, 0, 0, nonZeroFraction, uniqueFailures.size(), 0, 0, intervalExecsPerSecDouble,
-                numValid, numTrials-numValid, nonZeroValidFraction, nonZeroCount, nonZeroValidCount);
+                numValid, numTrials - numValid, nonZeroValidFraction, nonZeroCount, nonZeroValidCount);
+                */
         appendLineToFile(statsFile, plotData);
     }
 
@@ -541,18 +593,17 @@ public class DennisGuidance implements Guidance {
     /* Returns the banner to be displayed on the status screen */
     protected String getTitle() {
         if (blind) {
-            return  "Genetic Algorithm Fuzzing\n" +
-                "--------------------------------------------\n";
+            return "Genetic Algorithm Fuzzing\n" +
+                    "--------------------------------------------\n";
         } else {
-            return  "Fuzzing with Dennis\n" +
-                "--------------------------\n";
+            return "Fuzzing with Dennis\n" +
+                    "--------------------------\n";
         }
     }
 
     public void setBlind(boolean blind) {
         this.blind = blind;
     }
-
 
     /**
      * called once to initialize a random population
@@ -562,10 +613,9 @@ public class DennisGuidance implements Guidance {
     protected void initializePopulation() {
         console.printf("Initializing population\n");
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            this.population.put(new LinearInput((int) (Math.random() * INITIAL_VALUE_SIZE)), 0);
+            this.population.add(new LinearInput((int) (Math.random() * INITIAL_VALUE_SIZE)));
         }
     }
-
 
     /**
      * 
@@ -576,7 +626,7 @@ public class DennisGuidance implements Guidance {
         int numberOfMutations = (int) Math.round(mutationRate * this.population.size());
         for (int i = 0; i < numberOfMutations; i++) {
             int index = (int) (Math.random() * this.population.size());
-            ((LinearInput) this.population.keySet().toArray()[index]).mutate();
+            this.population.get(index).mutate();
         }
 
     }
@@ -596,12 +646,14 @@ public class DennisGuidance implements Guidance {
             while (firstIndex == secondIndex) {
                 secondIndex = (int) (Math.random() * this.population.size());
             }
-            LinearInput firstCandidate = (LinearInput) this.population.keySet().toArray()[firstIndex];
-            LinearInput secondCandidate = (LinearInput) this.population.keySet().toArray()[secondIndex];
+            LinearInput firstCandidate = this.population.get(firstIndex).copy();
+            LinearInput secondCandidate = this.population.get(secondIndex).copy();
             int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
             int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
             LinearInput newFirstCandidate = new LinearInput();
+            newFirstCandidate.setFitness(firstCandidate.getFitness());
             LinearInput newSecondCandidate = new LinearInput();
+            newSecondCandidate.setFitness(secondCandidate.getFitness());
 
             for (int j = 0; j < firstCrossoverPoint; j++) {
                 newFirstCandidate.values.add(firstCandidate.values.get(j));
@@ -616,44 +668,87 @@ public class DennisGuidance implements Guidance {
                 newSecondCandidate.values.add(firstCandidate.values.get(j));
             }
 
-            this.population.remove(firstCandidate);
-            this.population.put(newFirstCandidate, 0);
+            this.population.set(secondIndex, newSecondCandidate);
+            this.population.set(firstIndex, newFirstCandidate);
 
-            this.population.remove(secondCandidate);
-            this.population.put(newSecondCandidate, 0);
-        } 
+        }
     }
 
+    /**
+     * 
+     */
     protected void fitnessProportionalSelection() {
 
         // create a deep copy of the population
-        HashMap<LinearInput, Integer> populationCopy = new HashMap<>();
-        for (Entry<LinearInput, Integer> entry: this.population.entrySet()) {
-            populationCopy.put(entry.getKey(), entry.getValue());
+        ArrayList<LinearInput> populationCopy = new ArrayList<>();
+        for (LinearInput entry : this.population) {
+            //System.out.println("fitness from outside: " + entry.getFitness());
+            populationCopy.add(entry.copy());
         }
 
         int totalFitness = 0;
 
-        for (Entry<LinearInput, Integer> entry: populationCopy.entrySet()) {
-            totalFitness += entry.getValue();
-            entry.setValue(totalFitness);
+        for (LinearInput entry : populationCopy) {
+            //System.out.println("fitness from inside: " + entry.getFitness());
+            totalFitness += entry.getFitness();
+            entry.setFitness(totalFitness);
         }
 
-        // select a random entry with respect to the corresponding fitness compared to the total fitness
-        for (int i = 0; i < populationCopy.size(); i++) {
+        //System.out.println("total fitness: " + totalFitness);
+
+        // select a random entry with respect to the corresponding fitness compared to
+        // the total fitness
+        for (int i = 0; i < POPULATION_SIZE; i++) {
             int randomFitness = (int) (Math.random() * totalFitness);
-            for (Entry<LinearInput, Integer> entry: populationCopy.entrySet()) {
-                if (randomFitness <= entry.getValue()) {
-                    //System.out.println("Selected: " + entry.getKey().toString() + " with fitness: " + entry.getValue());
-                    this.population.put(entry.getKey(), 0);
+            for (LinearInput entry : populationCopy) {
+                if (randomFitness <= entry.getFitness()) {
+                    this.population.set(i, entry);
                     break;
                 }
             }
         }
     }
 
+    protected void rankBasedSelection() {
+        // create a deep copy of the population
+        ArrayList<LinearInput> populationCopy = new ArrayList<>();
+        for (LinearInput entry : this.population) {
+            populationCopy.add(entry.copy());
+        }
+
+        // sort the population by fitness
+        Collections.sort(populationCopy, new Comparator<LinearInput>() {
+            @Override
+            public int compare(LinearInput o1, LinearInput o2) {
+                return o1.getFitness() - o2.getFitness();
+            }
+        });
+
+        int totalFitness = 0; 
+
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            totalFitness += i;
+            populationCopy.get(i).setFitness(totalFitness);
+        }
+
+        // select a random entry with respect to the corresponding fitness compared to
+        // the total fitness
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            int randomFitness = (int) (Math.random() * totalFitness);
+            for (LinearInput entry : populationCopy) {
+                if (randomFitness <= entry.getFitness()) {
+                    this.population.set(i, entry);
+                    break;
+                }
+            }
+        }
+
+    }
+
+
+
     /**
-     * creates a new population based on the previously 
+     * creates a new population based on the previously
      * calculated fitness for each candidate
      *
      * 1. Mutation
@@ -663,25 +758,28 @@ public class DennisGuidance implements Guidance {
      *
      */
     protected void createNewPopulation() {
+        //System.out.println("");
 
         // should be called only once
         if (this.population.isEmpty()) {
             initializePopulation();
+            this.candidate = getCandidateFromPopulation();
+            return;
         }
 
         // works
         this.generationCoverage = totalCoverage.copy();
 
-        fitnessProportionalSelection();
-        mutate(0.1);
-        crossover(0.1);
+        rankBasedSelection();
+        //fitnessProportionalSelection();
+        mutate(0.3);
+        crossover(0.3);
 
         // reset fitness
-        for (Entry<LinearInput, Integer> entry: this.population.entrySet()) {
-            entry.setValue(0);
+        for (LinearInput candidate : this.population) {
+            candidate.setFitness(-1);
         }
 
-        
         // mutation
         // crossover
         // fitnessProportionalSelection
@@ -697,13 +795,18 @@ public class DennisGuidance implements Guidance {
      */
     protected void calculateFitness() {
 
+        this.numTrials++;
+
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = newCoverage.size();
-        if (fitness == 0) {
-            fitness = 1;
-        }
 
-        updatePopulationList(this.candidate, fitness);
+        //if (fitness == 0) {
+        //    fitness = 1;
+        //}
+
+        //System.out.println("fitness: " + fitness);
+
+        this.population.get(this.genCounter).setFitness(fitness);
     }
 
     /**
@@ -716,32 +819,18 @@ public class DennisGuidance implements Guidance {
      */
     protected LinearInput getCandidateFromPopulation() {
 
-        for (Entry<LinearInput, Integer> entry: this.population.entrySet()) {
-            if (entry.getValue() == 0) {
-                //console.printf("%s\n", entry.getKey().toString());
-                return entry.getKey();
-            }
+        if (this.population.size() == 0) {
+            return null;
         }
-        //console.printf("No candidate found ");
-        this.counter++;
-        return null;
 
+        if (genCounter == POPULATION_SIZE - 1) {
+            this.genCounter = 0;
+            this.counter++;
+            return null;    
+        }
 
-
+        return this.population.get(genCounter++);
     }
-
-    /**
-     *
-     * updates the population list with the new fitness
-     *
-     * @param key
-     * @param value
-     *
-     */
-    protected void updatePopulationList(LinearInput key, int value) {
-        this.population.put(key, value);
-    }
-
 
     /**
      * Returns an InputStream that delivers parameters to the generators.
@@ -758,7 +847,7 @@ public class DennisGuidance implements Guidance {
 
             @Override
             public int read() throws IOException {
-                assert candidate instanceof LinearInput: "DennisGuidance should only mutate LinearInput(s)";
+                assert candidate instanceof LinearInput : "DennisGuidance should only mutate LinearInput(s)";
 
                 // For linear inputs, get with key = bytesRead (which is then incremented)
                 LinearInput linearInput = (LinearInput) candidate;
@@ -772,10 +861,10 @@ public class DennisGuidance implements Guidance {
 
     @Override
     public InputStream getInput() throws GuidanceException {
-        totalCoverage.updateBits(runCoverage);
-        this.runCoverage.clear();
-        this.candidate = getCandidateFromPopulation();
         conditionallySynchronize(multiThreaded, () -> {
+            totalCoverage.updateBits(runCoverage);
+            this.runCoverage.clear();
+            this.candidate = getCandidateFromPopulation();
 
             if (this.candidate == null) {
                 createNewPopulation();
@@ -794,7 +883,7 @@ public class DennisGuidance implements Guidance {
             // exit
             return false;
         }
-        if(elapsedMilliseconds < maxDurationMillis
+        if (elapsedMilliseconds < maxDurationMillis
                 && numTrials < maxTrials) {
             return true;
         } else {
@@ -816,7 +905,7 @@ public class DennisGuidance implements Guidance {
                 numValid++;
             }
 
-            this.numTrials++;
+            //this.numTrials++;
             displayStats(false);
         });
 
@@ -851,7 +940,7 @@ public class DennisGuidance implements Guidance {
                 if (elapsed > this.singleRunTimeoutMillis) {
                     throw new TimeoutException(elapsed, this.singleRunTimeoutMillis);
                 }
-                    }
+            }
         });
     }
 
@@ -870,34 +959,58 @@ public class DennisGuidance implements Guidance {
         /** A list of byte values (0-255) ordered by their index. */
         protected ArrayList<Integer> values;
 
+        /** Stores the fitness */
+        protected Integer fitness = -1;
+
         /** The number of bytes requested so far */
         protected int requested = 0;
 
         public LinearInput() {
             super();
             this.values = new ArrayList<>();
+            this.fitness = -1;
         }
 
         public LinearInput(int random) {
             super();
             this.values = new ArrayList<>();
-            //fill arraylist with random values in random size
+            // fill arraylist with random values in random size
             for (int i = 0; i < random; i++) {
                 int randomValue = (int) (Math.random() * 256);
                 this.values.add(randomValue);
             }
+            this.fitness = -1;
 
         }
 
         public LinearInput(LinearInput other) {
             super(other);
             this.values = new ArrayList<>(other.values);
+            this.fitness = other.getFitness();
+        }
+
+        public LinearInput copy() {
+            return new LinearInput(this);
+        }
+
+        /** get values */
+        public ArrayList<Integer> getValues() {
+            return this.values;
+        }
+
+        /** set fitness */
+        public void setFitness(Integer fitness) {
+            this.fitness = fitness;
+        }
+
+        public Integer getFitness() {
+            return this.fitness;
         }
 
         public void mutate() {
             // mutating
             if (this.values.size() == 0) {
-                return;
+                //return;
             }
             int index = (int) (Math.random() * this.values.size());
             Integer gene = (int) (Math.random() * 256);
@@ -908,12 +1021,14 @@ public class DennisGuidance implements Guidance {
         public int getOrGenerateFresh(Integer key, Random random) {
             // Otherwise, make sure we are requesting just beyond the end-of-list
             // assert (key == values.size());
-            /* 
-            if (key != requested) {
-                throw new IllegalStateException(String.format("Bytes from linear input out of order. " +
-                        "Size = %d, Key = %d", this.values.size(), key));
-            }
-            */
+            /*
+             * if (key != requested) {
+             * throw new
+             * IllegalStateException(String.format("Bytes from linear input out of order. "
+             * +
+             * "Size = %d, Key = %d", this.values.size(), key));
+             * }
+             */
 
             // Don't generate over the limit
             if (requested >= MAX_INPUT_SIZE) {
@@ -924,9 +1039,9 @@ public class DennisGuidance implements Guidance {
             if (key < this.values.size()) {
                 requested++;
                 // infoLog("Returning old byte at key=%d, total requested=%d", key, requested);
-                //System.out.println("Value: " + values.get(key));
+                // System.out.println("Value: " + values.get(key));
                 return this.values.get(key);
-            } 
+            }
 
             // Handle end of stream
             if (GENERATE_EOF_WHEN_OUT) {
@@ -936,7 +1051,6 @@ public class DennisGuidance implements Guidance {
                 int val = random.nextInt(256);
                 this.values.add(val);
                 requested++;
-                // infoLog("Generating fresh byte at key=%d, total requested=%d", key, requested);
                 return val;
             }
         }
@@ -947,7 +1061,7 @@ public class DennisGuidance implements Guidance {
             for (int i = 0; i < this.values.size(); i++) {
                 ret += this.values.get(i) + " ";
             }
-            
+
             return ret;
         }
 
@@ -959,9 +1073,11 @@ public class DennisGuidance implements Guidance {
         /**
          * Truncates the input list to remove values that were never actually requested.
          *
-         * <p>Although this operation mutates the underlying object, the effect should
+         * <p>
+         * Although this operation mutates the underlying object, the effect should
          * not be externally visible (at least as long as the test executions are
-         * deterministic).</p>
+         * deterministic).
+         * </p>
          */
         @Override
         public void gc() {
@@ -971,7 +1087,8 @@ public class DennisGuidance implements Guidance {
 
             // Inputs should not be empty, otherwise mutations don't work
             if (values.isEmpty()) {
-                throw new IllegalArgumentException("Input is either empty or nothing was requested from the input generator.");
+                throw new IllegalArgumentException(
+                        "Input is either empty or nothing was requested from the input generator.");
             }
         }
 
@@ -982,7 +1099,7 @@ public class DennisGuidance implements Guidance {
 
             // Stack a bunch of mutations
             int numMutations = sampleGeometric(random, MEAN_MUTATION_COUNT);
-            //newInput.desc += ",havoc:"+numMutations;
+            // newInput.desc += ",havoc:"+numMutations;
 
             boolean setToZero = random.nextDouble() < 0.1; // one out of 10 times
 
@@ -1017,5 +1134,3 @@ public class DennisGuidance implements Guidance {
     }
 
 }
-
-
