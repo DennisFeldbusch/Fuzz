@@ -275,7 +275,7 @@ public class DennisGuidance implements Guidance {
 
     protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 1000);
 
-    protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 20);
+    protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 30);
 
     protected Integer genCounter = 0;
 
@@ -772,8 +772,8 @@ public class DennisGuidance implements Guidance {
 
         rankBasedSelection();
         //fitnessProportionalSelection();
-        mutate(0.3);
-        crossover(0.3);
+        mutate(0.2);
+        crossover(0.2);
 
         // reset fitness
         for (LinearInput candidate : this.population) {
@@ -800,12 +800,6 @@ public class DennisGuidance implements Guidance {
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = newCoverage.size();
 
-        //if (fitness == 0) {
-        //    fitness = 1;
-        //}
-
-        //System.out.println("fitness: " + fitness);
-
         this.population.get(this.genCounter).setFitness(fitness);
     }
 
@@ -823,13 +817,13 @@ public class DennisGuidance implements Guidance {
             return null;
         }
 
-        if (genCounter == POPULATION_SIZE - 1) {
+        if (genCounter == POPULATION_SIZE) {
             this.genCounter = 0;
             this.counter++;
             return null;    
         }
 
-        return this.population.get(genCounter++);
+        return this.population.get(genCounter);
     }
 
     /**
@@ -899,6 +893,7 @@ public class DennisGuidance implements Guidance {
             this.runStart = null;
             boolean valid = result == Result.SUCCESS;
             calculateFitness();
+            this.genCounter++;
 
             if (valid) {
                 // Increment valid counter
@@ -1009,12 +1004,16 @@ public class DennisGuidance implements Guidance {
 
         public void mutate() {
             // mutating
-            if (this.values.size() == 0) {
-                //return;
-            }
+            int choice = (int) (Math.random() * 3);
             int index = (int) (Math.random() * this.values.size());
             Integer gene = (int) (Math.random() * 256);
-            this.values.set(index, gene);
+            if (choice == 0) {
+                // add
+                this.values.add(index, gene);
+            } else {
+                // replace
+                this.values.set(index, gene);
+            }
         }
 
         @Override
