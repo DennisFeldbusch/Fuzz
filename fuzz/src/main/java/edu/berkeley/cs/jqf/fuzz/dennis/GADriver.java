@@ -39,11 +39,11 @@ import org.junit.runner.Result;
  *
  * @author Rohan Padhye
  */
-public class DennisDriver {
+public class GADriver {
 
     public static void main(String[] args) {
         if (args.length < 2){
-            System.err.println("Usage: java " + DennisDriver.class + " TEST_CLASS TEST_METHOD [OUTPUT_DIR [SEED_DIR | SEED_FILES...]]");
+            System.err.println("Usage: java " + GADriver.class + " TEST_CLASS TEST_METHOD [OUTPUT_DIR [SEED_DIR | SEED_FILES...]]");
             System.exit(1);
         }
 
@@ -62,14 +62,14 @@ public class DennisDriver {
         try {
             // Load the guidance
             String title = testClassName+"#"+testMethodName;
-            DennisGuidance guidance = null;
+            GAGuidance guidance = null;
 
             if (seedFiles == null) {
-                guidance = new DennisGuidance(title, null, outputDirectory);
+                guidance = new GAGuidance(title, null, outputDirectory);
             } else if (seedFiles.length == 1 && seedFiles[0].isDirectory()) {
-                guidance = new DennisGuidance(title, null, outputDirectory, seedFiles[0]);
+                guidance = new GAGuidance(title, null, outputDirectory, seedFiles[0]);
             } else {
-                guidance = new DennisGuidance(title, null, outputDirectory, seedFiles);
+                guidance = new GAGuidance(title, null, outputDirectory, seedFiles);
             }
 
 

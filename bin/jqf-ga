@@ -38,4 +38,4 @@ if [ $# -lt 2 ]; then
 fi
 
 # Run the Zest input driver
-$ROOT_DIR/scripts/jqf-driver.sh edu.berkeley.cs.jqf.fuzz.dennis.DennisDriver $@
+$ROOT_DIR/scripts/jqf-driver.sh edu.berkeley.cs.jqf.fuzz.dennis.GADriver $@

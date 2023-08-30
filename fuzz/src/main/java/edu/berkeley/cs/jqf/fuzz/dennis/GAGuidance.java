@@ -71,7 +71,7 @@ import janala.instrument.FastCoverageListener;
  *
  * @author Rohan Padhye
  */
-public class DennisGuidance implements Guidance {
+public class GAGuidance implements Guidance {
 
     /** A pseudo-random number generator for generating fresh values. */
     protected Random random;
@@ -301,7 +301,7 @@ public class DennisGuidance implements Guidance {
      * @param sourceOfRandomness a pseudo-random number generator
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory,
+    public GAGuidance(String testName, Duration duration, Long trials, File outputDirectory,
             Random sourceOfRandomness) throws IOException {
         this.random = sourceOfRandomness;
         this.testName = testName;
@@ -344,7 +344,7 @@ public class DennisGuidance implements Guidance {
      * @param sourceOfRandomness a pseudo-random number generator
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, File[] seedInputFiles,
+    public GAGuidance(String testName, Duration duration, Long trials, File outputDirectory, File[] seedInputFiles,
             Random sourceOfRandomness) throws IOException {
         this(testName, duration, trials, outputDirectory, sourceOfRandomness);
         if (seedInputFiles != null) {
@@ -370,7 +370,7 @@ public class DennisGuidance implements Guidance {
      * @param sourceOfRandomness a pseudo-random number generator
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, Long trials, File outputDirectory, File seedInputDir,
+    public GAGuidance(String testName, Duration duration, Long trials, File outputDirectory, File seedInputDir,
             Random sourceOfRandomness) throws IOException {
         this(testName, duration, trials, outputDirectory, IOUtils.resolveInputFileOrDirectory(seedInputDir),
                 sourceOfRandomness);
@@ -388,7 +388,7 @@ public class DennisGuidance implements Guidance {
      *                        used as initial inputs
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, File outputDirectory, File seedInputDir)
+    public GAGuidance(String testName, Duration duration, File outputDirectory, File seedInputDir)
             throws IOException {
         this(testName, duration, null, outputDirectory, seedInputDir, new Random());
     }
@@ -403,7 +403,7 @@ public class DennisGuidance implements Guidance {
      * @param outputDirectory the directory where fuzzing results will be written
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, File outputDirectory) throws IOException {
+    public GAGuidance(String testName, Duration duration, File outputDirectory) throws IOException {
         this(testName, duration, null, outputDirectory, new Random());
     }
 
@@ -417,7 +417,7 @@ public class DennisGuidance implements Guidance {
      * @param outputDirectory the directory where fuzzing results will be written
      * @throws IOException if the output directory could not be prepared
      */
-    public DennisGuidance(String testName, Duration duration, File outputDirectory, File[] seedFiles)
+    public GAGuidance(String testName, Duration duration, File outputDirectory, File[] seedFiles)
             throws IOException {
         this(testName, duration, null, outputDirectory, seedFiles, new Random());
     }
