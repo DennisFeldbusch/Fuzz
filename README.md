@@ -7,7 +7,7 @@ In order to test the newly implemented Fuzzer based on a genetic algorithm:
 ./setup.sh
 
 # start the new fuzzer (jqf-dennis)
-/path/to/bin/jqf-dennis -c $(scripts/examples_classpath.sh) edu.berkeley.cs.jqf.examples.ant.ProjectBuilderTest testWithString
+/path/to/bin/jqf-ga -c $(scripts/examples_classpath.sh) edu.berkeley.cs.jqf.examples.ant.ProjectBuilderTest testWithString
 ```
 
 # JQF + Zest: Semantic Fuzzing for Java
