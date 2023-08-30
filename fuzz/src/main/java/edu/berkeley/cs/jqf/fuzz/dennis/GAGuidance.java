@@ -29,9 +29,11 @@
  */
 package edu.berkeley.cs.jqf.fuzz.dennis;
 
+import java.io.BufferedOutputStream;
 import java.io.Console;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,14 +50,13 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-
 import org.eclipse.collections.api.list.primitive.IntList;
 
-import edu.berkeley.cs.jqf.fuzz.guidance.TimeoutException;
 import edu.berkeley.cs.jqf.fuzz.ei.ZestGuidance.Input;
 import edu.berkeley.cs.jqf.fuzz.guidance.Guidance;
 import edu.berkeley.cs.jqf.fuzz.guidance.GuidanceException;
 import edu.berkeley.cs.jqf.fuzz.guidance.Result;
+import edu.berkeley.cs.jqf.fuzz.guidance.TimeoutException;
 import edu.berkeley.cs.jqf.fuzz.util.Coverage;
 import edu.berkeley.cs.jqf.fuzz.util.CoverageFactory;
 import edu.berkeley.cs.jqf.fuzz.util.FastNonCollidingCoverage;
@@ -558,15 +559,10 @@ public class GAGuidance implements Guidance {
                 console.printf("Cycles completed:     %d\n", cyclesCompleted);
                 console.printf("Unique failures:      %,d\n", uniqueFailures.size());
                 console.printf("Queue size:           %,d (%,d favored last cycle)\n", 5, numFavoredLastCycle);
-                console.printf("Current parent input: %s\n", "currentParentInputDesc");
                 console.printf("Execution speed:      %,d/sec now | %,d/sec overall\n", intervalExecsPerSec,
                         execsPerSec);
                 console.printf("Total coverage:       %,d branches (%.2f%% of map)\n", nonZeroCount, nonZeroFraction);
-                console.printf("Valid coverage:       %,d branches (%.2f%% of map)\n", this.branchCount,
-                        nonZeroValidFraction);
-                console.printf("Total size:           %,d branches\n", totalCoverage.size());
                 console.printf("Generation:           %,d \n", this.counter);
-                console.printf("Generation coverage:  %,d\n", generationCoverage.getNonZeroCount());
             }
         }
 
@@ -592,17 +588,8 @@ public class GAGuidance implements Guidance {
 
     /* Returns the banner to be displayed on the status screen */
     protected String getTitle() {
-        if (blind) {
-            return "Genetic Algorithm Fuzzing\n" +
-                    "--------------------------------------------\n";
-        } else {
-            return "Fuzzing with Dennis\n" +
-                    "--------------------------\n";
-        }
-    }
-
-    public void setBlind(boolean blind) {
-        this.blind = blind;
+        return "Genetic Algorithm Fuzzing\n" +
+               "--------------------------------------------\n";
     }
 
     /**
@@ -772,8 +759,8 @@ public class GAGuidance implements Guidance {
 
         rankBasedSelection();
         //fitnessProportionalSelection();
-        mutate(0.2);
-        crossover(0.2);
+        mutate(0.5);
+        crossover(0.5);
 
         // reset fitness
         for (LinearInput entry : this.population) {
@@ -793,12 +780,16 @@ public class GAGuidance implements Guidance {
      * updates fitness of candidate in population list
      *
      */
-    protected void calculateFitness() {
+    protected void calculateFitness(Result result) {
 
         this.numTrials++;
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = newCoverage.size();
+
+        if (result != Result.INVALID) {
+            fitness += 1;
+        }
 
         this.population.get(this.genCounter).setFitness(fitness);
     }
@@ -886,18 +877,41 @@ public class GAGuidance implements Guidance {
         }
     }
 
+    protected void writeCurrentInputToFile(File saveFile) throws IOException {
+        try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(saveFile))) {
+            for (Integer b : this.candidate) {
+                assert (b >= 0 && b < 256);
+                out.write(b);
+            }
+        }
+
+    }
+
     @Override
     public void handleResult(Result result, Throwable error) throws GuidanceException {
         conditionallySynchronize(multiThreaded, () -> {
 
             this.runStart = null;
             boolean valid = result == Result.SUCCESS;
-            calculateFitness();
+            calculateFitness(result);
             this.genCounter++;
 
             if (valid) {
                 // Increment valid counter
                 numValid++;
+            }
+
+            if (result == Result.FAILURE || result == Result.TIMEOUT) {
+                String msg = error.getMessage();
+                uniqueFailures.add(msg);
+                                    // Save crash to disk
+                    int crashIdx = uniqueFailures.size() - 1;
+                    String saveFileName = String.format("id_%06d", crashIdx);
+                    File saveFile = new File(savedFailuresDirectory, saveFileName);
+                    GuidanceException.wrap(() -> writeCurrentInputToFile(saveFile));
+                    infoLog("%s", "Found crash: " + error.getClass() + " - " + (msg != null ? msg : ""));
+                    String why = result == Result.FAILURE ? "+crash" : "+hang";
+                    infoLog("Saved - %s %s %s", saveFile.getPath(), why, why);
             }
 
             //this.numTrials++;
