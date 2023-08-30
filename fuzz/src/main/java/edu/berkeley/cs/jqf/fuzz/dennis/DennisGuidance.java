@@ -776,8 +776,8 @@ public class DennisGuidance implements Guidance {
         crossover(0.2);
 
         // reset fitness
-        for (LinearInput candidate : this.population) {
-            candidate.setFitness(-1);
+        for (LinearInput entry : this.population) {
+            entry.setFitness(-1);
         }
 
         // mutation
