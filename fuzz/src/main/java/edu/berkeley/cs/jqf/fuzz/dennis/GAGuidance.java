@@ -274,9 +274,9 @@ public class GAGuidance implements Guidance {
      */
     protected final boolean STEAL_RESPONSIBILITY = Boolean.getBoolean("jqf.ei.STEAL_RESPONSIBILITY");
 
-    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 1000);
+    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 5000);
 
-    protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 30);
+    protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 1);
 
     protected Integer genCounter = 0;
 
@@ -566,7 +566,7 @@ public class GAGuidance implements Guidance {
             }
         }
 
-        String plotData = String.format("%s\t%d", millisToDuration(elapsedMilliseconds), nonZeroCount);
+        String plotData = String.format("%d\t%d", elapsedMilliseconds, nonZeroCount);
         /* 
         String plotData = String.format("%d, %d, %d, %d, %d, %d, %.2f%%, %d, %d, %d, %.2f, %d, %d, %.2f%%, %d, %d",
                 TimeUnit.MILLISECONDS.toSeconds(now.getTime()), cyclesCompleted, currentParentInputIdx,
@@ -600,7 +600,7 @@ public class GAGuidance implements Guidance {
     protected void initializePopulation() {
         console.printf("Initializing population\n");
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            this.population.add(new LinearInput((int) (Math.random() * INITIAL_VALUE_SIZE)));
+            this.population.add(new LinearInput(INITIAL_VALUE_SIZE));
         }
     }
 
@@ -762,10 +762,6 @@ public class GAGuidance implements Guidance {
         mutate(0.5);
         crossover(0.5);
 
-        // reset fitness
-        for (LinearInput entry : this.population) {
-            entry.setFitness(-1);
-        }
 
         // mutation
         // crossover
@@ -977,7 +973,6 @@ public class GAGuidance implements Guidance {
         public LinearInput() {
             super();
             this.values = new ArrayList<>();
-            this.fitness = -1;
         }
 
         public LinearInput(int random) {
@@ -985,10 +980,9 @@ public class GAGuidance implements Guidance {
             this.values = new ArrayList<>();
             // fill arraylist with random values in random size
             for (int i = 0; i < random; i++) {
-                int randomValue = (int) (Math.random() * 256);
+                int randomValue = (int) (Math.random() * 255);
                 this.values.add(randomValue);
             }
-            this.fitness = -1;
 
         }
 
@@ -1020,11 +1014,14 @@ public class GAGuidance implements Guidance {
             // mutating
             int choice = (int) (Math.random() * 3);
             int index = (int) (Math.random() * this.values.size());
-            Integer gene = (int) (Math.random() * 256);
+            Integer gene = (int) (Math.random() * 255);
             if (choice == 0) {
                 // add
                 this.values.add(index, gene);
-            } else {
+            } else if (choice == 1 && this.values.size() > 0) {
+                // remove
+                this.values.remove(index);
+            } else if (choice == 2) {
                 // replace
                 this.values.set(index, gene);
             }
@@ -1061,7 +1058,7 @@ public class GAGuidance implements Guidance {
                 return -1;
             } else {
                 // Just generate a random input
-                int val = random.nextInt(256);
+                int val = random.nextInt(255);
                 this.values.add(val);
                 requested++;
                 return val;
