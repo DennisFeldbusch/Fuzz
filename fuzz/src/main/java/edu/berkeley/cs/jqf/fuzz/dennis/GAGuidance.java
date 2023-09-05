@@ -801,9 +801,11 @@ public class GAGuidance implements Guidance {
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = 0 - newCoverage.size();
 
+        /*
         if (result != Result.INVALID) {
             fitness -= 1;
         }
+        */
 
         if (result == Result.FAILURE) {
             fitness += 1;
