@@ -153,6 +153,8 @@ public class GAGuidance implements Guidance {
     /** Cumulative coverage updated on generation */
     protected ICoverage generationCoverage = CoverageFactory.newInstance();
 
+    protected ICoverage firstGenerationCoverage = CoverageFactory.newInstance();
+
     /** just for testing purpose */
     protected ICoverage validCoverage = CoverageFactory.newInstance();
 
@@ -460,7 +462,7 @@ public class GAGuidance implements Guidance {
     }
 
     protected String getStatNames() {
-        return "elapsed_time\tbranches_covered";
+        return "x\ty\tz";
         /* 
         return "# unix_time, cycles_done, cur_path, paths_total, pending_total, " +
                 "pending_favs, map_size, unique_crashes, unique_hangs, max_depth, execs_per_sec, valid_inputs, invalid_inputs, valid_cov, all_covered_probes, valid_covered_probes";
@@ -530,7 +532,8 @@ public class GAGuidance implements Guidance {
         int nonZeroCount = totalCoverage.getNonZeroCount();
         double nonZeroFraction = nonZeroCount * 100.0 / totalCoverage.size();
         int nonZeroValidCount = validCoverage.getNonZeroCount();
-        double nonZeroValidFraction = nonZeroValidCount * 100.0 / validCoverage.size();
+
+        int difference = nonZeroCount - firstGenerationCoverage.getNonZeroCount();
 
         if (console != null) {
             if (LIBFUZZER_COMPAT_OUTPUT) {
@@ -563,10 +566,12 @@ public class GAGuidance implements Guidance {
                         execsPerSec);
                 console.printf("Total coverage:       %,d branches (%.2f%% of map)\n", nonZeroCount, nonZeroFraction);
                 console.printf("Generation:           %,d \n", this.counter);
+                console.printf("Difference:           %,d\n", difference);
+                console.printf("First Gen Count:      %,d\n", this.firstGenerationCoverage.getNonZeroCount());
             }
         }
 
-        String plotData = String.format("%d\t%d", elapsedMilliseconds, nonZeroCount);
+        String plotData = String.format("%d\t%d", elapsedMilliseconds, nonZeroCount, difference);
         /* 
         String plotData = String.format("%d, %d, %d, %d, %d, %d, %.2f%%, %d, %d, %d, %.2f, %d, %d, %.2f%%, %d, %d",
                 TimeUnit.MILLISECONDS.toSeconds(now.getTime()), cyclesCompleted, currentParentInputIdx,
@@ -696,6 +701,13 @@ public class GAGuidance implements Guidance {
         }
     }
 
+    protected void totalRandomSelection() {
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            int randomIndex = (int) (Math.random() * this.population.size());
+            this.population.set(i, this.population.get(randomIndex));
+        }
+    }
+    
     protected void rankBasedSelection() {
         // create a deep copy of the population
         ArrayList<LinearInput> populationCopy = new ArrayList<>();
@@ -757,11 +769,17 @@ public class GAGuidance implements Guidance {
         // works
         this.generationCoverage = totalCoverage.copy();
 
-        rankBasedSelection();
+        if (this.counter == 1) {
+            this.firstGenerationCoverage = generationCoverage.copy();
+        }
+
+        //totalRandomSelection();
         //fitnessProportionalSelection();
+        rankBasedSelection();
         mutate(0.5);
         crossover(0.5);
 
+        //fitnessProportionalSelection();
 
         // mutation
         // crossover
@@ -781,9 +799,13 @@ public class GAGuidance implements Guidance {
         this.numTrials++;
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
-        int fitness = newCoverage.size();
+        int fitness = 0 - newCoverage.size();
 
         if (result != Result.INVALID) {
+            fitness -= 1;
+        }
+
+        if (result == Result.FAILURE) {
             fitness += 1;
         }
 
