@@ -571,7 +571,7 @@ public class GAGuidance implements Guidance {
             }
         }
 
-        String plotData = String.format("%d\t%d", elapsedMilliseconds, nonZeroCount, difference);
+        String plotData = String.format("%d\t%d\t%d", elapsedMilliseconds, nonZeroCount, difference);
         /* 
         String plotData = String.format("%d, %d, %d, %d, %d, %d, %.2f%%, %d, %d, %d, %.2f, %d, %d, %.2f%%, %d, %d",
                 TimeUnit.MILLISECONDS.toSeconds(now.getTime()), cyclesCompleted, currentParentInputIdx,
@@ -776,8 +776,8 @@ public class GAGuidance implements Guidance {
         //totalRandomSelection();
         //fitnessProportionalSelection();
         rankBasedSelection();
-        mutate(0.5);
-        crossover(0.5);
+        mutate(0.2);
+        crossover(0.2);
 
         //fitnessProportionalSelection();
 
