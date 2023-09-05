@@ -799,7 +799,7 @@ public class GAGuidance implements Guidance {
         this.numTrials++;
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
-        int fitness = 0 - newCoverage.size();
+        int fitness = newCoverage.size();
 
         /*
         if (result != Result.INVALID) {
