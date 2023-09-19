@@ -30,9 +30,11 @@
 package edu.berkeley.cs.jqf.fuzz.dennis;
 
 import java.io.File;
+import java.time.Duration;
+
+import org.junit.runner.Result;
 
 import edu.berkeley.cs.jqf.fuzz.junit.GuidedFuzzing;
-import org.junit.runner.Result;
 
 /**
  * Entry point for fuzzing with Zest.
@@ -65,7 +67,7 @@ public class GADriver {
             GAGuidance guidance = null;
 
             if (seedFiles == null) {
-                guidance = new GAGuidance(title, null, outputDirectory);
+                guidance = new GAGuidance(title, Duration.ofSeconds(120), outputDirectory);
             } else if (seedFiles.length == 1 && seedFiles[0].isDirectory()) {
                 guidance = new GAGuidance(title, null, outputDirectory, seedFiles[0]);
             } else {

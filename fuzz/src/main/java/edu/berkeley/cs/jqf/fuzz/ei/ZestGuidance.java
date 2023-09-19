@@ -29,6 +29,9 @@
  */
 package edu.berkeley.cs.jqf.fuzz.ei;
 
+import static java.lang.Math.ceil;
+import static java.lang.Math.log;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.Console;
@@ -58,6 +61,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.eclipse.collections.api.iterator.IntIterator;
+import org.eclipse.collections.api.list.primitive.IntList;
+import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
+
 import edu.berkeley.cs.jqf.fuzz.guidance.Guidance;
 import edu.berkeley.cs.jqf.fuzz.guidance.GuidanceException;
 import edu.berkeley.cs.jqf.fuzz.guidance.Result;
@@ -70,12 +77,6 @@ import edu.berkeley.cs.jqf.fuzz.util.IOUtils;
 import edu.berkeley.cs.jqf.instrument.tracing.FastCoverageSnoop;
 import edu.berkeley.cs.jqf.instrument.tracing.events.TraceEvent;
 import janala.instrument.FastCoverageListener;
-import org.eclipse.collections.api.iterator.IntIterator;
-import org.eclipse.collections.api.list.primitive.IntList;
-import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
-
-import static java.lang.Math.ceil;
-import static java.lang.Math.log;
 
 /**
  * A guidance that performs coverage-guided fuzzing using two coverage maps,
@@ -423,8 +424,11 @@ public class ZestGuidance implements Guidance {
     }
 
     protected String getStatNames() {
+        return "x\ty";
+        /*
         return "# unix_time, cycles_done, cur_path, paths_total, pending_total, " +
             "pending_favs, map_size, unique_crashes, unique_hangs, max_depth, execs_per_sec, valid_inputs, invalid_inputs, valid_cov, all_covered_probes, valid_covered_probes";
+        */
     }
 
     /* Writes a line of text to a given log file. */
@@ -534,10 +538,13 @@ public class ZestGuidance implements Guidance {
             }
         }
 
+        /*
         String plotData = String.format("%d, %d, %d, %d, %d, %d, %.2f%%, %d, %d, %d, %.2f, %d, %d, %.2f%%, %d, %d",
                 TimeUnit.MILLISECONDS.toSeconds(now.getTime()), cyclesCompleted, currentParentInputIdx,
                 numSavedInputs, 0, 0, nonZeroFraction, uniqueFailures.size(), 0, 0, intervalExecsPerSecDouble,
                 numValid, numTrials-numValid, nonZeroValidFraction, nonZeroCount, nonZeroValidCount);
+                */
+        String plotData = String.format("%d\t%d", elapsedMilliseconds, nonZeroCount);
         appendLineToFile(statsFile, plotData);
     }
 

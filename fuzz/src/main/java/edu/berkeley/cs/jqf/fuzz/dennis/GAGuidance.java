@@ -615,9 +615,15 @@ public class GAGuidance implements Guidance {
      * @param mutationRate
      */
     protected void mutate(double mutationRate) {
+        // generate a list of unique random indices
         int numberOfMutations = (int) Math.round(mutationRate * this.population.size());
+        int indices[] = new int[this.population.size()];
+        // create a list of random indices
         for (int i = 0; i < numberOfMutations; i++) {
             int index = (int) (Math.random() * this.population.size());
+            while (indices[index] == index) {
+                index = (int) (Math.random() * this.population.size());
+            }
             this.population.get(index).mutate();
         }
 
@@ -776,7 +782,7 @@ public class GAGuidance implements Guidance {
         //totalRandomSelection();
         //fitnessProportionalSelection();
         rankBasedSelection();
-        mutate(0.5);
+        mutate(1.0);
         crossover(0.5);
 
         //fitnessProportionalSelection();
@@ -799,15 +805,17 @@ public class GAGuidance implements Guidance {
         this.numTrials++;
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
-        int fitness = 0 - newCoverage.size();
+        int fitness = newCoverage.size();
 
+        /* 
         if (result != Result.INVALID) {
-            fitness -= 1;
+            fitness += 1;
         }
 
         if (result == Result.FAILURE) {
             fitness += 1;
         }
+        */
 
         this.population.get(this.genCounter).setFitness(fitness);
     }
@@ -1040,10 +1048,10 @@ public class GAGuidance implements Guidance {
             if (choice == 0) {
                 // add
                 this.values.add(index, gene);
-            } else if (choice == 1 && this.values.size() > 0) {
+            } else if (choice == 1 && this.size() > 0) {
                 // remove
                 this.values.remove(index);
-            } else if (choice == 2) {
+            } else if (choice == 2 && this.size() > 0) {
                 // replace
                 this.values.set(index, gene);
             }
@@ -1090,7 +1098,7 @@ public class GAGuidance implements Guidance {
         @Override
         public String toString() {
             String ret = "";
-            for (int i = 0; i < this.values.size(); i++) {
+            for (int i = 0; i < this.size(); i++) {
                 ret += this.values.get(i) + " ";
             }
 
