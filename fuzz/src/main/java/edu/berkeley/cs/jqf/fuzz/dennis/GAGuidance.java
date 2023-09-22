@@ -560,9 +560,7 @@ public class GAGuidance implements Guidance {
                 console.printf("Number of executions: %,d (%s)\n", numTrials,
                         maxTrials == Long.MAX_VALUE ? "no trial limit" : ("max " + maxTrials));
                 console.printf("Valid inputs:         %,d (%.2f%%)\n", numValid, numValid * 100.0 / numTrials);
-                console.printf("Cycles completed:     %d\n", cyclesCompleted);
                 console.printf("Unique failures:      %,d\n", uniqueFailures.size());
-                console.printf("Queue size:           %,d (%,d favored last cycle)\n", 5, numFavoredLastCycle);
                 console.printf("Execution speed:      %,d/sec now | %,d/sec overall\n", intervalExecsPerSec,
                         execsPerSec);
                 console.printf("Total coverage:       %,d branches (%.2f%% of map)\n", nonZeroCount, nonZeroFraction);
@@ -808,7 +806,7 @@ public class GAGuidance implements Guidance {
         //fitnessProportionalSelection();
         rankBasedSelection();
         //tournamentSelection();
-        mutate(1.0);
+        mutate(0.9);
         crossover(0.6);
 
         //fitnessProportionalSelection();
@@ -836,7 +834,6 @@ public class GAGuidance implements Guidance {
 
 
         
-
         /*
         if (result == Result.SUCCESS) {
             fitness += 1;
