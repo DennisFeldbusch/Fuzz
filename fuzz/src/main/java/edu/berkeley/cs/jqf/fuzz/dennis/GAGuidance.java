@@ -532,6 +532,7 @@ public class GAGuidance implements Guidance {
         int nonZeroCount = totalCoverage.getNonZeroCount();
         double nonZeroFraction = nonZeroCount * 100.0 / totalCoverage.size();
         int nonZeroValidCount = validCoverage.getNonZeroCount();
+        double nonZeroValidFraction = nonZeroValidCount * 100.0 / validCoverage.size();
 
         int difference = nonZeroCount - firstGenerationCoverage.getNonZeroCount();
 
@@ -565,6 +566,7 @@ public class GAGuidance implements Guidance {
                 console.printf("Execution speed:      %,d/sec now | %,d/sec overall\n", intervalExecsPerSec,
                         execsPerSec);
                 console.printf("Total coverage:       %,d branches (%.2f%% of map)\n", nonZeroCount, nonZeroFraction);
+                console.printf("Valid coverage:       %,d branches (%.2f%% of map)\n", nonZeroValidCount, nonZeroValidFraction);
                 console.printf("Generation:           %,d \n", this.counter);
                 console.printf("Difference:           %,d\n", difference);
                 console.printf("First Gen Count:      %,d\n", this.firstGenerationCoverage.getNonZeroCount());
@@ -713,6 +715,29 @@ public class GAGuidance implements Guidance {
             this.population.set(i, this.population.get(randomIndex));
         }
     }
+
+    protected void tournamentSelection() {
+        // create a deep copy of the population
+        ArrayList<LinearInput> populationCopy = new ArrayList<>();
+        for (LinearInput entry : this.population) {
+            populationCopy.add(entry.copy());
+        }
+
+        // select a random entry with respect to the corresponding fitness compared to
+        // the total fitness
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            int randomIndex1 = (int) (Math.random() * this.population.size());
+            int randomIndex2 = (int) (Math.random() * this.population.size());
+            while (randomIndex1 == randomIndex2) {
+                randomIndex2 = (int) (Math.random() * this.population.size());
+            }
+            if (populationCopy.get(randomIndex1).getFitness() > populationCopy.get(randomIndex2).getFitness()) {
+                this.population.set(i, populationCopy.get(randomIndex1));
+            } else {
+                this.population.set(i, populationCopy.get(randomIndex2));
+            }
+        }
+    }
     
     protected void rankBasedSelection() {
         // create a deep copy of the population
@@ -782,8 +807,9 @@ public class GAGuidance implements Guidance {
         //totalRandomSelection();
         //fitnessProportionalSelection();
         rankBasedSelection();
+        //tournamentSelection();
         mutate(1.0);
-        crossover(0.5);
+        crossover(0.6);
 
         //fitnessProportionalSelection();
 
@@ -805,14 +831,14 @@ public class GAGuidance implements Guidance {
         this.numTrials++;
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
-        int fitness = newCoverage.size();
+        int fitness = 0 - newCoverage.size();
+        //int fitness = runCoverage.getNonZeroCount() / generationCoverage.getNonZeroCount();
 
-        /* 
-        if (result != Result.INVALID) {
-            fitness += 1;
-        }
 
-        if (result == Result.FAILURE) {
+        
+
+        /*
+        if (result == Result.SUCCESS) {
             fitness += 1;
         }
         */
@@ -925,6 +951,7 @@ public class GAGuidance implements Guidance {
             if (valid) {
                 // Increment valid counter
                 numValid++;
+                validCoverage.updateBits(runCoverage);
             }
 
             if (result == Result.FAILURE || result == Result.TIMEOUT) {
