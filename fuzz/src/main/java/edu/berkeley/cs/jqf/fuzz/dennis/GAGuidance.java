@@ -109,21 +109,6 @@ public class GAGuidance implements Guidance {
      */
     protected File allInputsDirectory;
 
-    /**
-     * Index of currentInput in the savedInputs -- valid after seeds are processed
-     * (OK if this is inaccurate).
-     */
-    protected int currentParentInputIdx = 0;
-
-    /** Number of mutated inputs generated from currentInput. */
-    protected int numChildrenGeneratedForCurrentParentInput = 0;
-
-    /**
-     * Number of cycles completed (i.e. how many times we've reset
-     * currentParentInputIdx to 0.
-     */
-    protected int cyclesCompleted = 0;
-
     /** Number of favored inputs in the last cycle. */
     protected int numFavoredLastCycle = 0;
 
@@ -157,9 +142,6 @@ public class GAGuidance implements Guidance {
 
     /** just for testing purpose */
     protected ICoverage validCoverage = CoverageFactory.newInstance();
-
-    /** The maximum number of keys covered by any single input found so far. */
-    protected int maxCoverage = 0;
 
     /** The set of unique failures found so far. */
     protected Set<String> uniqueFailures = new HashSet<>();
@@ -238,9 +220,6 @@ public class GAGuidance implements Guidance {
 
     // ------------- FUZZING HEURISTICS ------------
 
-    /** Whether to save only valid inputs **/
-    protected final boolean SAVE_ONLY_VALID = Boolean.getBoolean("jqf.ei.SAVE_ONLY_VALID");
-
     /** Max input size to generate. */
     protected final int MAX_INPUT_SIZE = Integer.getInteger("jqf.ei.MAX_INPUT_SIZE", 10240);
 
@@ -249,14 +228,6 @@ public class GAGuidance implements Guidance {
      * randomly generating new bytes.
      **/
     protected final boolean GENERATE_EOF_WHEN_OUT = Boolean.getBoolean("jqf.ei.GENERATE_EOF_WHEN_OUT");
-
-    /** Baseline number of mutated children to produce from a given parent input. */
-    protected final int NUM_CHILDREN_BASELINE = 50;
-
-    /**
-     * Multiplication factor for number of children to produce for favored inputs.
-     */
-    protected final int NUM_CHILDREN_MULTIPLIER_FAVORED = 20;
 
     /** Mean number of mutations to perform in each round. */
     protected final double MEAN_MUTATION_COUNT = 8.0;
@@ -625,6 +596,7 @@ public class GAGuidance implements Guidance {
                 index = (int) (Math.random() * this.population.size());
             }
             this.population.get(index).mutate();
+            indices[index] = index;
         }
 
     }
@@ -775,9 +747,9 @@ public class GAGuidance implements Guidance {
      * creates a new population based on the previously
      * calculated fitness for each candidate
      *
-     * 1. Mutation
-     * 2. Crossover
-     * 3. FitnessProportionalSelection
+     * 1. Selection
+     * 2. Mutation
+     * 3. Crossover
      * 4. update totalCoverage
      *
      */

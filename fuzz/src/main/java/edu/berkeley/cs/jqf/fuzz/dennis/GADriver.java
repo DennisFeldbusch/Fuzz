@@ -67,7 +67,7 @@ public class GADriver {
             GAGuidance guidance = null;
 
             if (seedFiles == null) {
-                guidance = new GAGuidance(title, Duration.ofSeconds(120), outputDirectory);
+                guidance = new GAGuidance(title, Duration.ofSeconds(600), outputDirectory);
             } else if (seedFiles.length == 1 && seedFiles[0].isDirectory()) {
                 guidance = new GAGuidance(title, null, outputDirectory, seedFiles[0]);
             } else {
