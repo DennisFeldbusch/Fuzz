@@ -462,7 +462,7 @@ public class GAGuidance implements Guidance {
     }
 
     protected String getStatNames() {
-        return "x\ty\tz";
+        return "";
         /* 
         return "# unix_time, cycles_done, cur_path, paths_total, pending_total, " +
                 "pending_favs, map_size, unique_crashes, unique_hangs, max_depth, execs_per_sec, valid_inputs, invalid_inputs, valid_cov, all_covered_probes, valid_covered_probes";
@@ -680,19 +680,15 @@ public class GAGuidance implements Guidance {
         // create a deep copy of the population
         ArrayList<LinearInput> populationCopy = new ArrayList<>();
         for (LinearInput entry : this.population) {
-            //System.out.println("fitness from outside: " + entry.getFitness());
             populationCopy.add(entry.copy());
         }
 
         int totalFitness = 0;
 
         for (LinearInput entry : populationCopy) {
-            //System.out.println("fitness from inside: " + entry.getFitness());
             totalFitness += entry.getFitness();
             entry.setFitness(totalFitness);
         }
-
-        //System.out.println("total fitness: " + totalFitness);
 
         // select a random entry with respect to the corresponding fitness compared to
         // the total fitness
@@ -806,14 +802,8 @@ public class GAGuidance implements Guidance {
         //fitnessProportionalSelection();
         rankBasedSelection();
         //tournamentSelection();
-        mutate(0.9);
+        mutate(0.99);
         crossover(0.6);
-
-        //fitnessProportionalSelection();
-
-        // mutation
-        // crossover
-        // fitnessProportionalSelection
 
         this.candidate = getCandidateFromPopulation();
 
@@ -830,15 +820,6 @@ public class GAGuidance implements Guidance {
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = 0 - newCoverage.size();
-        //int fitness = runCoverage.getNonZeroCount() / generationCoverage.getNonZeroCount();
-
-
-        
-        /*
-        if (result == Result.SUCCESS) {
-            fitness += 1;
-        }
-        */
 
         this.population.get(this.genCounter).setFitness(fitness);
     }
@@ -1085,14 +1066,6 @@ public class GAGuidance implements Guidance {
         public int getOrGenerateFresh(Integer key, Random random) {
             // Otherwise, make sure we are requesting just beyond the end-of-list
             // assert (key == values.size());
-            /*
-             * if (key != requested) {
-             * throw new
-             * IllegalStateException(String.format("Bytes from linear input out of order. "
-             * +
-             * "Size = %d, Key = %d", this.values.size(), key));
-             * }
-             */
 
             // Don't generate over the limit
             if (requested >= MAX_INPUT_SIZE) {
@@ -1102,8 +1075,6 @@ public class GAGuidance implements Guidance {
             // If it exists in the list, return it
             if (key < this.values.size()) {
                 requested++;
-                // infoLog("Returning old byte at key=%d, total requested=%d", key, requested);
-                // System.out.println("Value: " + values.get(key));
                 return this.values.get(key);
             }
 
