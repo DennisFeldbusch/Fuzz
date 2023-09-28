@@ -32,7 +32,6 @@ package edu.berkeley.cs.jqf.fuzz.dennis;
 import java.io.BufferedOutputStream;
 import java.io.Console;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -70,7 +69,7 @@ import janala.instrument.FastCoverageListener;
  * A guidance that performs coverage-guided fuzzing using two coverage maps,
  * one for all inputs and one for valid inputs only.
  *
- * @author Rohan Padhye
+ * @author Dennis Feldbusch
  */
 public class GAGuidance implements Guidance {
 
@@ -262,7 +261,7 @@ public class GAGuidance implements Guidance {
     protected int counter;
 
     /**
-     * Creates a new Zest guidance instance with optional duration,
+     * Creates a new GA guidance instance with optional duration,
      * optional trial limit, and possibly deterministic PRNG.
      *
      * @param testName           the name of test to display on the status screen
@@ -303,7 +302,7 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * Creates a new Zest guidance instance with seed input files and optional
+     * Creates a new GA guidance instance with seed input files and optional
      * duration, optional trial limit, an possibly deterministic PRNG.
      *
      * @param testName           the name of test to display on the status screen
@@ -329,7 +328,7 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * Creates a new Zest guidance instance with seed input directory and optional
+     * Creates a new GA guidance instance with seed input directory and optional
      * duration, optional trial limit, an possibly deterministic PRNG.
      *
      * @param testName           the name of test to display on the status screen
@@ -351,7 +350,7 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * Creates a new Zest guidance instance with seed inputs and
+     * Creates a new GA guidance instance with seed inputs and
      * optional duration.
      *
      * @param testName        the name of test to display on the status screen
@@ -368,7 +367,7 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * Creates a new Zest guidance instance with seed inputs and
+     * Creates a new GA guidance instance with seed inputs and
      * optional duration.
      *
      * @param testName        the name of test to display on the status screen
@@ -382,7 +381,7 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * Creates a new Zest guidance instance with seed inputs and
+     * Creates a new GA guidance instance with seed inputs and
      * optional duration.
      *
      * @param testName        the name of test to display on the status screen
@@ -474,8 +473,7 @@ public class GAGuidance implements Guidance {
         if (hours > 0 || minutes > 0) {
             result += minutes + "m ";
         }
-        result += seconds + "";
-        //result += seconds + "s";
+        result += seconds + "s";
         return result;
     }
 
@@ -489,11 +487,6 @@ public class GAGuidance implements Guidance {
         }
         long interlvalTrials = numTrials - lastNumTrials;
         long intervalExecsPerSec = interlvalTrials * 1000L;
-        double intervalExecsPerSecDouble = interlvalTrials * 1000.0;
-        if (intervalMilliseconds != 0) {
-            intervalExecsPerSec = interlvalTrials * 1000L / intervalMilliseconds;
-            intervalExecsPerSecDouble = interlvalTrials * 1000.0 / intervalMilliseconds;
-        }
         lastRefreshTime = now;
         lastNumTrials = numTrials;
         long elapsedMilliseconds = now.getTime() - startTime.getTime();
@@ -542,7 +535,7 @@ public class GAGuidance implements Guidance {
             }
         }
 
-        String plotData = String.format("%d\t%d", elapsedMilliseconds, nonZeroCount, difference);
+        String plotData = String.format("%d\t%d", elapsedMilliseconds / 1000, nonZeroCount, difference);
         /* 
         String plotData = String.format("%d, %d, %d, %d, %d, %d, %.2f%%, %d, %d, %d, %.2f, %d, %d, %.2f%%, %d, %d",
                 TimeUnit.MILLISECONDS.toSeconds(now.getTime()), cyclesCompleted, currentParentInputIdx,
@@ -550,16 +543,6 @@ public class GAGuidance implements Guidance {
                 numValid, numTrials - numValid, nonZeroValidFraction, nonZeroCount, nonZeroValidCount);
                 */
         appendLineToFile(statsFile, plotData);
-    }
-
-    /** Updates the data in the coverage file */
-    protected void updateCoverageFile() {
-        try {
-            PrintWriter pw = new PrintWriter(coverageFile);
-            pw.close();
-        } catch (FileNotFoundException ignore) {
-            throw new GuidanceException(ignore);
-        }
     }
 
     /* Returns the banner to be displayed on the status screen */
@@ -571,7 +554,6 @@ public class GAGuidance implements Guidance {
     /**
      * called once to initialize a random population
      * 
-     * 
      */
     protected void initializePopulation() {
         console.printf("Initializing population\n");
@@ -581,7 +563,8 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * 
+     * mutates the population with given mutation rate
+     * ensures that a candidate is chosen once at most
      * 
      * @param mutationRate
      */
@@ -603,7 +586,7 @@ public class GAGuidance implements Guidance {
 
     /**
      * Take two random candidates from the population
-     * generate two randowm crossover points
+     * generate two random crossover points
      * swap the genes between the two points
      * 
      * @param crossoverRate
@@ -645,7 +628,7 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * 
+     * selects new population based on the fitness values of the previous population
      */
     protected void fitnessProportionalSelection() {
 
@@ -741,8 +724,6 @@ public class GAGuidance implements Guidance {
 
     }
 
-
-
     /**
      * creates a new population based on the previously
      * calculated fitness for each candidate
@@ -750,12 +731,9 @@ public class GAGuidance implements Guidance {
      * 1. Selection
      * 2. Mutation
      * 3. Crossover
-     * 4. update totalCoverage
      *
      */
     protected void createNewPopulation() {
-        //System.out.println("");
-
         // should be called only once
         if (this.population.isEmpty()) {
             initializePopulation();
@@ -763,7 +741,6 @@ public class GAGuidance implements Guidance {
             return;
         }
 
-        // works
         this.generationCoverage = totalCoverage.copy();
 
         if (this.counter == 1) {
@@ -778,7 +755,6 @@ public class GAGuidance implements Guidance {
         crossover(0.6);
 
         this.candidate = getCandidateFromPopulation();
-
     }
 
     /**
@@ -786,9 +762,7 @@ public class GAGuidance implements Guidance {
      * updates fitness of candidate in population list
      *
      */
-    protected void calculateFitness(Result result) {
-
-        this.numTrials++;
+    protected void calculateFitness() {
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = 0 - newCoverage.size();
@@ -895,7 +869,7 @@ public class GAGuidance implements Guidance {
 
             this.runStart = null;
             boolean valid = result == Result.SUCCESS;
-            calculateFitness(result);
+            calculateFitness();
             this.genCounter++;
 
             if (valid) {
@@ -917,7 +891,7 @@ public class GAGuidance implements Guidance {
                     infoLog("Saved - %s %s %s", saveFile.getPath(), why, why);
             }
 
-            //this.numTrials++;
+            this.numTrials++;
             displayStats(false);
         });
 
@@ -1036,9 +1010,6 @@ public class GAGuidance implements Guidance {
 
         @Override
         public int getOrGenerateFresh(Integer key, Random random) {
-            // Otherwise, make sure we are requesting just beyond the end-of-list
-            // assert (key == values.size());
-
             // Don't generate over the limit
             if (requested >= MAX_INPUT_SIZE) {
                 return -1;
@@ -1106,7 +1077,6 @@ public class GAGuidance implements Guidance {
 
             // Stack a bunch of mutations
             int numMutations = sampleGeometric(random, MEAN_MUTATION_COUNT);
-            // newInput.desc += ",havoc:"+numMutations;
 
             boolean setToZero = random.nextDouble() < 0.1; // one out of 10 times
 
@@ -1115,8 +1085,6 @@ public class GAGuidance implements Guidance {
                 // Select a random offset and size
                 int offset = random.nextInt(newInput.values.size());
                 int mutationSize = sampleGeometric(random, MEAN_MUTATION_SIZE);
-
-                // desc += String.format(":%d@%d", mutationSize, idx);
 
                 // Mutate a contiguous set of bytes from offset
                 for (int i = offset; i < offset + mutationSize; i++) {
