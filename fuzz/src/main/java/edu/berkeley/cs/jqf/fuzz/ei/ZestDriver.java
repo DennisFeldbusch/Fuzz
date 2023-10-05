@@ -53,12 +53,9 @@ public class ZestDriver {
         String testMethodName = args[1];
         String outputDirectoryName = args.length > 2 ? args[2] : "fuzz-results";
         File outputDirectory = new File(outputDirectoryName);
-        File[] seedFiles = null;
+        Duration duration = null;
         if (args.length > 3) {
-            seedFiles = new File[args.length-3];
-            for (int i = 3; i < args.length; i++) {
-                seedFiles[i-3] = new File(args[i]);
-            }
+            duration = Duration.ofMinutes(Integer.parseInt(args[3]));
         }
 
         try {
@@ -66,13 +63,7 @@ public class ZestDriver {
             String title = testClassName+"#"+testMethodName;
             ZestGuidance guidance = null;
 
-            if (seedFiles == null) {
-                guidance = new ZestGuidance(title, Duration.ofSeconds(120), outputDirectory);
-            } else if (seedFiles.length == 1 && seedFiles[0].isDirectory()) {
-                guidance = new ZestGuidance(title, null, outputDirectory, seedFiles[0]);
-            } else {
-                guidance = new ZestGuidance(title, null, outputDirectory, seedFiles);
-            }
+            guidance = new ZestGuidance(title, duration, outputDirectory);
 
 
             // Run the Junit test
