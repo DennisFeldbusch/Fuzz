@@ -1010,15 +1010,23 @@ public class GAGuidance implements Guidance {
 
         @Override
         public int getOrGenerateFresh(Integer key, Random random) {
+            // Otherwise, make sure we are requesting just beyond the end-of-list
+            // assert (key == values.size());
+            if (key != requested) {
+                throw new IllegalStateException(String.format("Bytes from linear input out of order. " +
+                        "Size = %d, Key = %d", values.size(), key));
+            }
+
             // Don't generate over the limit
             if (requested >= MAX_INPUT_SIZE) {
                 return -1;
             }
 
             // If it exists in the list, return it
-            if (key < this.values.size()) {
+            if (key < values.size()) {
                 requested++;
-                return this.values.get(key);
+                // infoLog("Returning old byte at key=%d, total requested=%d", key, requested);
+                return values.get(key);
             }
 
             // Handle end of stream
@@ -1026,9 +1034,10 @@ public class GAGuidance implements Guidance {
                 return -1;
             } else {
                 // Just generate a random input
-                int val = random.nextInt(255);
-                this.values.add(val);
+                int val = random.nextInt(256);
+                values.add(val);
                 requested++;
+                // infoLog("Generating fresh byte at key=%d, total requested=%d", key, requested);
                 return val;
             }
         }
