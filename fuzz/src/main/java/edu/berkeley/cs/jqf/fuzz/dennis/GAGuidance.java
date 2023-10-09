@@ -717,6 +717,7 @@ public class GAGuidance implements Guidance {
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
                     this.population.set(i, entry);
+                    this.population.get(i).requested = 0;
                     break;
                 }
             }
@@ -784,7 +785,7 @@ public class GAGuidance implements Guidance {
             return null;
         }
 
-        if (genCounter == POPULATION_SIZE) {
+        if (genCounter >= POPULATION_SIZE) {
             this.genCounter = 0;
             this.counter++;
             return null;    
@@ -796,7 +797,7 @@ public class GAGuidance implements Guidance {
     /**
      * Returns an InputStream that delivers parameters to the generators.
      *
-     * Note: The variable `currentInput` has been set to point to the input
+     * Note: The variable `candidate` has been set to point to the input
      * to mutate.
      *
      * @return an InputStream that delivers parameters to the generators
@@ -811,7 +812,7 @@ public class GAGuidance implements Guidance {
                 assert candidate instanceof LinearInput : "DennisGuidance should only mutate LinearInput(s)";
 
                 // For linear inputs, get with key = bytesRead (which is then incremented)
-                LinearInput linearInput = (LinearInput) candidate;
+                LinearInput linearInput = candidate;
                 // Attempt to get a value from the list, or else generate a random value
                 int ret = linearInput.getOrGenerateFresh(bytesRead++, random);
                 // infoLog("read(%d) = %d", bytesRead, ret);
@@ -823,6 +824,7 @@ public class GAGuidance implements Guidance {
     @Override
     public InputStream getInput() throws GuidanceException {
         conditionallySynchronize(multiThreaded, () -> {
+            this.genCounter++;
             totalCoverage.updateBits(runCoverage);
             this.runCoverage.clear();
             this.candidate = getCandidateFromPopulation();
@@ -1013,8 +1015,8 @@ public class GAGuidance implements Guidance {
             // Otherwise, make sure we are requesting just beyond the end-of-list
             // assert (key == values.size());
             if (key != requested) {
-                throw new IllegalStateException(String.format("Bytes from linear input out of order. " +
-                        "Size = %d, Key = %d", values.size(), key));
+                throw new IllegalStateException(String.format("Bytes from linear input out of order.. " +
+                        "Size = %d, Key = %d, Requested = %d", values.size(), key, requested));
             }
 
             // Don't generate over the limit
@@ -1043,18 +1045,8 @@ public class GAGuidance implements Guidance {
         }
 
         @Override
-        public String toString() {
-            String ret = "";
-            for (int i = 0; i < this.size(); i++) {
-                ret += this.values.get(i) + " ";
-            }
-
-            return ret;
-        }
-
-        @Override
         public int size() {
-            return this.values.size();
+            return values.size();
         }
 
         /**
