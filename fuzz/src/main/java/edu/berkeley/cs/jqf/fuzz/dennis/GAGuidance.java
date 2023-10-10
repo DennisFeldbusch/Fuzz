@@ -487,6 +487,11 @@ public class GAGuidance implements Guidance {
         }
         long interlvalTrials = numTrials - lastNumTrials;
         long intervalExecsPerSec = interlvalTrials * 1000L;
+        double intervalExecsPerSecDouble = interlvalTrials * 1000.0;
+        if(intervalMilliseconds != 0) {
+            intervalExecsPerSec = interlvalTrials * 1000L / intervalMilliseconds;
+            intervalExecsPerSecDouble = interlvalTrials * 1000.0 / intervalMilliseconds;
+        }
         lastRefreshTime = now;
         lastNumTrials = numTrials;
         long elapsedMilliseconds = now.getTime() - startTime.getTime();
@@ -717,7 +722,6 @@ public class GAGuidance implements Guidance {
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
                     this.population.set(i, entry);
-                    this.population.get(i).requested = 0;
                     break;
                 }
             }
@@ -744,7 +748,7 @@ public class GAGuidance implements Guidance {
 
         this.generationCoverage = totalCoverage.copy();
 
-        if (this.counter == 1) {
+        if (this.counter == 0) {
             this.firstGenerationCoverage = generationCoverage.copy();
         }
 
@@ -756,6 +760,7 @@ public class GAGuidance implements Guidance {
         crossover(0.6);
 
         this.candidate = getCandidateFromPopulation();
+        this.counter++;
     }
 
     /**
@@ -785,13 +790,8 @@ public class GAGuidance implements Guidance {
             return null;
         }
 
-        if (genCounter >= POPULATION_SIZE) {
-            this.genCounter = 0;
-            this.counter++;
-            return null;    
-        }
-
-        return this.population.get(genCounter);
+        this.population.get(this.genCounter).setRequested(0);
+        return this.population.get(this.genCounter);
     }
 
     /**
@@ -824,14 +824,17 @@ public class GAGuidance implements Guidance {
     @Override
     public InputStream getInput() throws GuidanceException {
         conditionallySynchronize(multiThreaded, () -> {
-            this.genCounter++;
             totalCoverage.updateBits(runCoverage);
             this.runCoverage.clear();
             this.candidate = getCandidateFromPopulation();
 
-            if (this.candidate == null) {
+            if (this.genCounter == 0) {
                 createNewPopulation();
             }
+
+            this.genCounter++;
+            this.genCounter %= POPULATION_SIZE;
+            this.numTrials++;
 
         });
         return createParameterStream();
@@ -872,7 +875,6 @@ public class GAGuidance implements Guidance {
             this.runStart = null;
             boolean valid = result == Result.SUCCESS;
             calculateFitness();
-            this.genCounter++;
 
             if (valid) {
                 // Increment valid counter
@@ -893,7 +895,7 @@ public class GAGuidance implements Guidance {
                     infoLog("Saved - %s %s %s", saveFile.getPath(), why, why);
             }
 
-            this.numTrials++;
+            //this.numTrials++;
             displayStats(false);
         });
 
@@ -991,6 +993,14 @@ public class GAGuidance implements Guidance {
 
         public Integer getFitness() {
             return this.fitness;
+        }
+
+        public void setRequested(int requested) {
+            this.requested = requested;
+        }
+
+        public Integer getRequested() {
+            return this.requested;
         }
 
         public void mutate() {
