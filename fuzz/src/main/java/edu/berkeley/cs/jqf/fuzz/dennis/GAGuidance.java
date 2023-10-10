@@ -220,7 +220,7 @@ public class GAGuidance implements Guidance {
     // ------------- FUZZING HEURISTICS ------------
 
     /** Max input size to generate. */
-    protected final int MAX_INPUT_SIZE = Integer.getInteger("jqf.ei.MAX_INPUT_SIZE", 10240);
+    protected final int MAX_INPUT_SIZE = Integer.getInteger("jqf.ei.MAX_INPUT_SIZE", 1024);
 
     /**
      * Whether to generate EOFs when we run out of bytes in the input, instead of
@@ -250,11 +250,11 @@ public class GAGuidance implements Guidance {
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 1);
 
-    protected Integer genCounter = 0;
+    protected int genCounter = 0;
 
     protected Coverage coverage = new Coverage();
 
-    protected ArrayList<LinearInput> population = new ArrayList<>();
+    protected ArrayList<LinearInput> population = new ArrayList<>(POPULATION_SIZE);
 
     protected LinearInput candidate;
 
@@ -638,7 +638,7 @@ public class GAGuidance implements Guidance {
     protected void fitnessProportionalSelection() {
 
         // create a deep copy of the population
-        ArrayList<LinearInput> populationCopy = new ArrayList<>();
+        ArrayList<LinearInput> populationCopy = new ArrayList<>(POPULATION_SIZE);
         for (LinearInput entry : this.population) {
             populationCopy.add(entry.copy());
         }
@@ -722,11 +722,15 @@ public class GAGuidance implements Guidance {
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
                     this.population.set(i, entry);
+                    entry.gc();
                     break;
                 }
             }
         }
 
+        // delete populationCopy
+        populationCopy.clear();
+        System.gc();
     }
 
     /**
@@ -860,7 +864,7 @@ public class GAGuidance implements Guidance {
 
     protected void writeCurrentInputToFile(File saveFile) throws IOException {
         try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(saveFile))) {
-            for (Integer b : this.candidate) {
+            for (int b : this.candidate) {
                 assert (b >= 0 && b < 256);
                 out.write(b);
             }
@@ -950,19 +954,19 @@ public class GAGuidance implements Guidance {
         protected ArrayList<Integer> values;
 
         /** Stores the fitness */
-        protected Integer fitness = -1;
+        protected int fitness = -1;
 
         /** The number of bytes requested so far */
         protected int requested = 0;
 
         public LinearInput() {
             super();
-            this.values = new ArrayList<>();
+            this.values = new ArrayList<>(POPULATION_SIZE);
         }
 
         public LinearInput(int random) {
             super();
-            this.values = new ArrayList<>();
+            this.values = new ArrayList<>(POPULATION_SIZE);
             // fill arraylist with random values in random size
             for (int i = 0; i < random; i++) {
                 int randomValue = (int) (Math.random() * 255);
@@ -987,11 +991,11 @@ public class GAGuidance implements Guidance {
         }
 
         /** set fitness */
-        public void setFitness(Integer fitness) {
+        public void setFitness(int fitness) {
             this.fitness = fitness;
         }
 
-        public Integer getFitness() {
+        public int getFitness() {
             return this.fitness;
         }
 
@@ -999,7 +1003,7 @@ public class GAGuidance implements Guidance {
             this.requested = requested;
         }
 
-        public Integer getRequested() {
+        public int getRequested() {
             return this.requested;
         }
 
@@ -1007,7 +1011,7 @@ public class GAGuidance implements Guidance {
             // mutating
             int choice = (int) (Math.random() * 3);
             int index = (int) (Math.random() * this.values.size());
-            Integer gene = (int) (Math.random() * 255);
+            int gene = (int) (Math.random() * 255);
             if (choice == 0) {
                 // add
                 this.values.add(index, gene);
@@ -1057,6 +1061,12 @@ public class GAGuidance implements Guidance {
         @Override
         public int size() {
             return values.size();
+        }
+
+        @Override
+        public void gc() {
+            //detele all values
+            this.values.clear();
         }
 
         @Override
