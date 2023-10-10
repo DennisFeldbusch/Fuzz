@@ -246,7 +246,7 @@ public class GAGuidance implements Guidance {
      */
     protected final boolean STEAL_RESPONSIBILITY = Boolean.getBoolean("jqf.ei.STEAL_RESPONSIBILITY");
 
-    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 2500);
+    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 500);
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 1);
 
@@ -1057,28 +1057,6 @@ public class GAGuidance implements Guidance {
         @Override
         public int size() {
             return values.size();
-        }
-
-        /**
-         * Truncates the input list to remove values that were never actually requested.
-         *
-         * <p>
-         * Although this operation mutates the underlying object, the effect should
-         * not be externally visible (at least as long as the test executions are
-         * deterministic).
-         * </p>
-         */
-        @Override
-        public void gc() {
-            // Remove elements beyond "requested"
-            values = new ArrayList<>(values.subList(0, requested));
-            values.trimToSize();
-
-            // Inputs should not be empty, otherwise mutations don't work
-            if (values.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Input is either empty or nothing was requested from the input generator.");
-            }
         }
 
         @Override
