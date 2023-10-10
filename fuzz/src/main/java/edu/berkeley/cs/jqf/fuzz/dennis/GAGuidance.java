@@ -246,7 +246,7 @@ public class GAGuidance implements Guidance {
      */
     protected final boolean STEAL_RESPONSIBILITY = Boolean.getBoolean("jqf.ei.STEAL_RESPONSIBILITY");
 
-    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 500);
+    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 5000);
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 1);
 
