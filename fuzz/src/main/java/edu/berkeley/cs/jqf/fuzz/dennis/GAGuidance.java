@@ -772,10 +772,12 @@ public class GAGuidance implements Guidance {
      * updates fitness of candidate in population list
      *
      */
-    protected void calculateFitness() {
+    protected void calculateFitness(Result result) {
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
-        int fitness = 0 - newCoverage.size();
+        int fitness = runCoverage.getNonZeroCount() - newCoverage.size();
+        //int fitness = newCoverage.size();
+        fitness -= result == Result.SUCCESS ? 1 : -1;
 
         this.population.get(this.genCounter).setFitness(fitness);
     }
@@ -878,7 +880,7 @@ public class GAGuidance implements Guidance {
 
             this.runStart = null;
             boolean valid = result == Result.SUCCESS;
-            calculateFitness();
+            calculateFitness(result);
 
             if (valid) {
                 // Increment valid counter
