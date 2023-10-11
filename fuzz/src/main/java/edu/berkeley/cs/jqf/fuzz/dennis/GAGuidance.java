@@ -37,8 +37,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -890,8 +893,15 @@ public class GAGuidance implements Guidance {
 
             if (result == Result.FAILURE || result == Result.TIMEOUT) {
                 String msg = error.getMessage();
-                uniqueFailures.add(msg);
-                                    // Save crash to disk
+
+                // Get the root cause of the failure
+                Throwable rootCause = error;
+                while (rootCause.getCause() != null) {
+                    rootCause = rootCause.getCause();
+                }
+
+                if (uniqueFailures.add(failureDigest(rootCause.getStackTrace()))) {
+                    // Save crash to disk
                     int crashIdx = uniqueFailures.size() - 1;
                     String saveFileName = String.format("id_%06d", crashIdx);
                     File saveFile = new File(savedFailuresDirectory, saveFileName);
@@ -899,6 +909,7 @@ public class GAGuidance implements Guidance {
                     infoLog("%s", "Found crash: " + error.getClass() + " - " + (msg != null ? msg : ""));
                     String why = result == Result.FAILURE ? "+crash" : "+hang";
                     infoLog("Saved - %s %s %s", saveFile.getPath(), why, why);
+                }
             }
 
             //this.numTrials++;
@@ -948,6 +959,25 @@ public class GAGuidance implements Guidance {
         } else {
             task.run();
         }
+    }
+
+    private static MessageDigest sha1;
+
+    private static String failureDigest(StackTraceElement[] stackTrace) {
+        if (sha1 == null) {
+            try {
+                sha1 = MessageDigest.getInstance("SHA-1");
+            } catch (NoSuchAlgorithmException e) {
+                throw new GuidanceException(e);
+            }
+        }
+        byte[] bytes = sha1.digest(Arrays.deepToString(stackTrace).getBytes());
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < bytes.length; i++) {
+            sb.append(Integer.toString((bytes[i] & 0xff) + 0x100, 16)
+                    .substring(1));
+        }
+        return sb.toString();
     }
 
     public class LinearInput extends Input<Integer> {
