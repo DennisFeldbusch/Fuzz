@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.eclipse.collections.api.list.primitive.IntList;
 
 import edu.berkeley.cs.jqf.fuzz.ei.ZestGuidance.Input;
@@ -251,7 +252,7 @@ public class GAGuidance implements Guidance {
 
     protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 5000);
 
-    protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 1);
+    protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 10);
 
     protected int genCounter = 0;
 
@@ -262,6 +263,8 @@ public class GAGuidance implements Guidance {
     protected LinearInput candidate;
 
     protected int counter;
+
+    protected static BinomialDistribution binomial = new BinomialDistribution(10, 0.5);
 
     /**
      * Creates a new GA guidance instance with optional duration,
@@ -603,8 +606,12 @@ public class GAGuidance implements Guidance {
             }
             LinearInput firstCandidate = this.population.get(firstIndex).copy();
             LinearInput secondCandidate = this.population.get(secondIndex).copy();
-            int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
-            int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
+            int sizeOne = firstCandidate.size() == 0 ? 0 : firstCandidate.size()-1;
+            int sizeTwo = secondCandidate.size() == 0 ? 0 : secondCandidate.size()-1;
+            int firstCrossoverPoint = (binomial.sample() * sizeOne) / 10;
+            int secondCrossoverPoint = (binomial.sample() * sizeTwo) / 10;
+            //int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
+            //int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
             LinearInput newFirstCandidate = new LinearInput();
             newFirstCandidate.setFitness(firstCandidate.getFitness());
             LinearInput newSecondCandidate = new LinearInput();
@@ -715,7 +722,8 @@ public class GAGuidance implements Guidance {
         // select a random entry with respect to the corresponding fitness compared to
         // the total fitness
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            int randomFitness = (int) (Math.random() * totalFitness);
+            //int randomFitness = (int) (Math.random() * totalFitness);
+            int randomFitness = (binomial.sample() * totalFitness) / 10;
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
                     this.population.set(i, entry);
@@ -753,9 +761,9 @@ public class GAGuidance implements Guidance {
             this.firstGenerationCoverage = generationCoverage.copy();
         }
 
-        //totalRandomSelection();
+        totalRandomSelection();
         //fitnessProportionalSelection();
-        rankBasedSelection();
+        //rankBasedSelection();
         //tournamentSelection();
         mutate(0.99);
         crossover(0.6);
@@ -772,9 +780,9 @@ public class GAGuidance implements Guidance {
     protected void calculateFitness(Result result) {
 
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
-        int fitness = runCoverage.getNonZeroCount() - newCoverage.size();
+        int fitness = runCoverage.getNonZeroCount();// - newCoverage.size();
         //int fitness = newCoverage.size();
-        fitness -= result == Result.SUCCESS ? 1 : -1;
+        //fitness += result == Result.SUCCESS ? 2 : 0.5;
 
         this.population.get(this.genCounter).setFitness(fitness);
     }
@@ -1036,7 +1044,9 @@ public class GAGuidance implements Guidance {
         public void mutate() {
             // mutating
             int choice = (int) (Math.random() * 3);
-            int index = (int) (Math.random() * this.values.size());
+            int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
+            int index = (binomial.sample() * size) / 10;
+            //int index = (int) (Math.random() * this.values.size());
             int gene = (int) (Math.random() * 255);
             if (choice == 0) {
                 // add
