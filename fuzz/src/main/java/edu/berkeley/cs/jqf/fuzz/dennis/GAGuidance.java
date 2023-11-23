@@ -580,6 +580,7 @@ public class GAGuidance implements Guidance {
         // create a list of random indices
         for (int i = 0; i < numberOfMutations; i++) {
             int index = (int) (Math.random() * this.population.size());
+            //int index = (binomial.sample() * this.population.size()-1) / 10;
             while (indices[index] == index) {
                 index = (int) (Math.random() * this.population.size());
             }
@@ -608,10 +609,10 @@ public class GAGuidance implements Guidance {
             LinearInput secondCandidate = this.population.get(secondIndex).copy();
             int sizeOne = firstCandidate.size() == 0 ? 0 : firstCandidate.size()-1;
             int sizeTwo = secondCandidate.size() == 0 ? 0 : secondCandidate.size()-1;
-            int firstCrossoverPoint = (binomial.sample() * sizeOne) / 10;
-            int secondCrossoverPoint = (binomial.sample() * sizeTwo) / 10;
-            //int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
-            //int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
+            //int firstCrossoverPoint = (binomial.sample() * sizeOne) / 10;
+            //int secondCrossoverPoint = (binomial.sample() * sizeTwo) / 10;
+            int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
+            int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
             LinearInput newFirstCandidate = new LinearInput();
             newFirstCandidate.setFitness(firstCandidate.getFitness());
             LinearInput newSecondCandidate = new LinearInput();
@@ -722,12 +723,13 @@ public class GAGuidance implements Guidance {
         // select a random entry with respect to the corresponding fitness compared to
         // the total fitness
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            //int randomFitness = (int) (Math.random() * totalFitness);
-            int randomFitness = (binomial.sample() * totalFitness) / 10;
+            int randomFitness = (int) (Math.random() * totalFitness);
+            //int randomFitness = (binomial.sample() * totalFitness) / 10;
+            //int randomFitness = (geometric.sample() % totalFitness);
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
                     this.population.set(i, entry);
-                    entry.gc();
+                    entry.clear();
                     break;
                 }
             }
@@ -765,8 +767,8 @@ public class GAGuidance implements Guidance {
         //fitnessProportionalSelection();
         //rankBasedSelection();
         //tournamentSelection();
-        mutate(0.99);
         crossover(0.6);
+        mutate(0.99);
 
         this.candidate = getCandidateFromPopulation();
         this.counter++;
@@ -835,7 +837,7 @@ public class GAGuidance implements Guidance {
     @Override
     public InputStream getInput() throws GuidanceException {
         conditionallySynchronize(multiThreaded, () -> {
-            totalCoverage.updateBits(runCoverage);
+            //totalCoverage.updateBits(runCoverage);
             this.runCoverage.clear();
             this.candidate = getCandidateFromPopulation();
 
@@ -893,7 +895,13 @@ public class GAGuidance implements Guidance {
                 validCoverage.updateBits(runCoverage);
             }
 
-            if (result == Result.FAILURE || result == Result.TIMEOUT) {
+            this.candidate.gc();
+
+            if (result == Result.SUCCESS || result == Result.INVALID) {
+                totalCoverage.updateBits(runCoverage);
+
+            }
+            else if (result == Result.FAILURE || result == Result.TIMEOUT) {
                 String msg = error.getMessage();
 
                 // Get the root cause of the failure
@@ -903,6 +911,10 @@ public class GAGuidance implements Guidance {
                 }
 
                 if (uniqueFailures.add(failureDigest(rootCause.getStackTrace()))) {
+
+                    // It must still be non-empty
+                    assert (this.candidate.size() > 0) : String.format("Empty input: %s", this.candidate.toString());
+
                     // Save crash to disk
                     int crashIdx = uniqueFailures.size() - 1;
                     String saveFileName = String.format("id_%06d", crashIdx);
@@ -1045,8 +1057,8 @@ public class GAGuidance implements Guidance {
             // mutating
             int choice = (int) (Math.random() * 3);
             int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
-            int index = (binomial.sample() * size) / 10;
-            //int index = (int) (Math.random() * this.values.size());
+            //int index = (binomial.sample() * size) / 10;
+            int index = (int) (Math.random() * this.values.size());
             int gene = (int) (Math.random() * 255);
             if (choice == 0) {
                 // add
@@ -1099,9 +1111,30 @@ public class GAGuidance implements Guidance {
             return values.size();
         }
 
+        /**
+         * Truncates the input list to remove values that were never actually requested.
+         *
+         * <p>Although this operation mutates the underlying object, the effect should
+         * not be externally visible (at least as long as the test executions are
+         * deterministic).</p>
+         */
         @Override
         public void gc() {
-            //detele all values
+            // Remove elements beyond "requested"
+            values = new ArrayList<>(values.subList(0, requested));
+            values.trimToSize();
+
+            // Inputs should not be empty, otherwise mutations don't work
+            if (values.isEmpty()) {
+                throw new IllegalArgumentException("Input is either empty or nothing was requested from the input generator.");
+            }
+        }
+        
+        /**
+         * clears the whole input
+         * 
+         */
+        public void clear() {
             this.values.clear();
         }
 
