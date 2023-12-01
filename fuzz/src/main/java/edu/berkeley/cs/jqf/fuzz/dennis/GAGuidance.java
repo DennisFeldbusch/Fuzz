@@ -238,18 +238,6 @@ public class GAGuidance implements Guidance {
     /** Mean number of contiguous bytes to mutate in each mutation. */
     protected final double MEAN_MUTATION_SIZE = 4.0; // Bytes
 
-    /**
-     * Whether to save inputs that only add new coverage bits (but no new
-     * responsibilities).
-     */
-    protected final boolean DISABLE_SAVE_NEW_COUNTS = Boolean.getBoolean("jqf.ei.DISABLE_SAVE_NEW_COUNTS");
-
-    /**
-     * Whether to steal responsibility from old inputs (this increases computation
-     * cost).
-     */
-    protected final boolean STEAL_RESPONSIBILITY = Boolean.getBoolean("jqf.ei.STEAL_RESPONSIBILITY");
-
     protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 5000);
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 10);
@@ -438,11 +426,7 @@ public class GAGuidance implements Guidance {
     }
 
     protected String getStatNames() {
-        return "x\ty\tz";
-        /* 
-        return "# unix_time, cycles_done, cur_path, paths_total, pending_total, " +
-                "pending_favs, map_size, unique_crashes, unique_hangs, max_depth, execs_per_sec, valid_inputs, invalid_inputs, valid_cov, all_covered_probes, valid_covered_probes";
-                */
+        return "elapsed time\tcovered branches\tunique failures\tnew branches per population";
     }
 
     /* Writes a line of text to a given log file. */
@@ -510,6 +494,8 @@ public class GAGuidance implements Guidance {
         double nonZeroValidFraction = nonZeroValidCount * 100.0 / validCoverage.size();
 
         int difference = nonZeroCount - firstGenerationCoverage.getNonZeroCount();
+        int newBranchesInGeneration = nonZeroCount - generationCoverage.getNonZeroCount();
+
 
         if (console != null) {
             if (LIBFUZZER_COMPAT_OUTPUT) {
@@ -541,12 +527,13 @@ public class GAGuidance implements Guidance {
                 console.printf("Total coverage:       %,d branches (%.2f%% of map)\n", nonZeroCount, nonZeroFraction);
                 console.printf("Valid coverage:       %,d branches (%.2f%% of map)\n", nonZeroValidCount, nonZeroValidFraction);
                 console.printf("Generation:           %,d \n", this.counter);
-                console.printf("Difference:           %,d\n", difference);
+                console.printf("Difference:           %,d\n", this.counter > 0 ? difference : 0);
+                console.printf("Generation Coverage:  %,d\n", this.counter > 0 ? newBranchesInGeneration : 0);
                 console.printf("First Gen Count:      %,d\n", this.firstGenerationCoverage.getNonZeroCount());
             }
         }
 
-        String plotData = String.format("%d\t%d\t%d", elapsedMilliseconds / 1000, nonZeroCount, uniqueFailures.size());
+        String plotData = String.format("%d\t%d\t%d\t%d", elapsedMilliseconds / 1000, nonZeroCount, uniqueFailures.size(), newBranchesInGeneration);
         appendLineToFile(statsFile, plotData);
     }
 
@@ -587,7 +574,6 @@ public class GAGuidance implements Guidance {
             this.population.get(index).mutate();
             indices[index] = index;
         }
-
     }
 
     /**
@@ -607,8 +593,8 @@ public class GAGuidance implements Guidance {
             }
             LinearInput firstCandidate = this.population.get(firstIndex).copy();
             LinearInput secondCandidate = this.population.get(secondIndex).copy();
-            int sizeOne = firstCandidate.size() == 0 ? 0 : firstCandidate.size()-1;
-            int sizeTwo = secondCandidate.size() == 0 ? 0 : secondCandidate.size()-1;
+            //int sizeOne = firstCandidate.size() == 0 ? 0 : firstCandidate.size()-1;
+            //int sizeTwo = secondCandidate.size() == 0 ? 0 : secondCandidate.size()-1;
             //int firstCrossoverPoint = (binomial.sample() * sizeOne) / 10;
             //int secondCrossoverPoint = (binomial.sample() * sizeTwo) / 10;
             int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
@@ -784,7 +770,7 @@ public class GAGuidance implements Guidance {
         IntList newCoverage = runCoverage.computeNewCoverage(generationCoverage);
         int fitness = runCoverage.getNonZeroCount();// - newCoverage.size();
         //int fitness = newCoverage.size();
-        //fitness += result == Result.SUCCESS ? 2 : 0.5;
+        //fitness += result == Result.SUCCESS ? 2 : -1;
 
         this.population.get(this.genCounter).setFitness(fitness);
     }
@@ -1055,11 +1041,12 @@ public class GAGuidance implements Guidance {
 
         public void mutate() {
             // mutating
-            int choice = (int) (Math.random() * 3);
+            //int choice = (int) (Math.random() * 3);
             int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
             //int index = (binomial.sample() * size) / 10;
             int index = (int) (Math.random() * this.values.size());
             int gene = (int) (Math.random() * 255);
+            /* 
             if (choice == 0) {
                 // add
                 this.values.add(index, gene);
@@ -1068,8 +1055,9 @@ public class GAGuidance implements Guidance {
                 this.values.remove(index);
             } else if (choice == 2 && this.size() > 0) {
                 // replace
+            */
                 this.values.set(index, gene);
-            }
+            //}
         }
 
         @Override
