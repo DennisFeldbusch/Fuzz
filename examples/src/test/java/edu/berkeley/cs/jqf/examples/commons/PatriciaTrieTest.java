@@ -28,25 +28,37 @@
  */
 package edu.berkeley.cs.jqf.examples.commons;
 
-import com.pholser.junit.quickcheck.From;
-import edu.berkeley.cs.jqf.examples.common.AsciiStringGenerator;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.berkeley.cs.jqf.fuzz.Fuzz;
-import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.apache.commons.collections4.Trie;
 import org.apache.commons.collections4.trie.PatriciaTrie;
 import org.junit.runner.RunWith;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import com.pholser.junit.quickcheck.From;
+
+import edu.berkeley.cs.jqf.examples.common.AsciiStringGenerator;
+import edu.berkeley.cs.jqf.fuzz.Fuzz;
+import edu.berkeley.cs.jqf.fuzz.JQF;
 
 /**
  * @author Rohan Padhye
  */
 @RunWith(JQF.class)
 public class PatriciaTrieTest {
+
+    @Fuzz
+    public void testCopyAscii(Map<@From(AsciiStringGenerator.class) String, Integer> map,
+                              @From(AsciiStringGenerator.class) String key) {
+        assumeTrue(map.containsKey(key));
+        // Create new trie with input `map`
+        Trie trie = new PatriciaTrie(map);
+        // The key should exist in the trie as well
+        assertTrue(trie.containsKey(key));
+    }
 
     @Fuzz
     public void testPrefixMap(HashMap<String, Integer> map, String prefix) {
@@ -72,14 +84,16 @@ public class PatriciaTrieTest {
         assertTrue(trie.containsKey(key));
     }
 
-
     @Fuzz
-    public void testCopyAscii(Map<@From(AsciiStringGenerator.class) String, Integer> map,
-                              @From(AsciiStringGenerator.class) String key) {
-        assumeTrue(map.containsKey(key));
-        // Create new trie with input `map`
+    public void simpleTest(Map<String, Integer> map) {
+        // get any key from the map
+        String key = map.keySet().iterator().next();
+
         Trie trie = new PatriciaTrie(map);
-        // The key should exist in the trie as well
+
         assertTrue(trie.containsKey(key));
+
     }
+
+
 }
