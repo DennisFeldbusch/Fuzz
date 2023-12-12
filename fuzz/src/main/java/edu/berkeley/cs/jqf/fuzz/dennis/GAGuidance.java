@@ -533,7 +533,7 @@ public class GAGuidance implements Guidance {
             }
         }
 
-        String plotData = String.format("%d\t%d\t%d\t%d", elapsedMilliseconds / 1000, nonZeroCount, uniqueFailures.size(), newBranchesInGeneration);
+        String plotData = String.format("%d\t%d\t%d\t%d", elapsedMilliseconds , nonZeroCount, uniqueFailures.size(), newBranchesInGeneration);
         appendLineToFile(statsFile, plotData);
     }
 
