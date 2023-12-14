@@ -6,7 +6,7 @@ In order to test the newly implemented Fuzzer based on a genetic algorithm:
 # build the project
 ./setup.sh
 
-# start the new fuzzer (jqf-dennis)
+# start the new fuzzer (jqf-ga)
 /path/to/bin/jqf-ga -c $(scripts/examples_classpath.sh) edu.berkeley.cs.jqf.examples.ant.ProjectBuilderTest testWithString
 ```
 
