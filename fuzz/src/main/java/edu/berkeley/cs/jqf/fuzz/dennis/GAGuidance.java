@@ -112,26 +112,6 @@ public class GAGuidance implements Guidance {
      */
     protected File allInputsDirectory;
 
-    /** Number of favored inputs in the last cycle. */
-    protected int numFavoredLastCycle = 0;
-
-    /** Blind fuzzing -- if true then the queue is always empty. */
-    protected boolean blind;
-
-    /**
-     * Validity fuzzing -- if true then save valid inputs that increase valid
-     * coverage
-     */
-    protected boolean validityFuzzing;
-
-    /**
-     * Number of saved inputs.
-     *
-     * This is usually the same as savedInputs.size(),
-     * but we do not really save inputs in TOTALLY_RANDOM mode.
-     */
-    protected int numSavedInputs = 0;
-
     /** Coverage statistics for a single run. */
     protected ICoverage runCoverage = CoverageFactory.newInstance();
 
@@ -143,14 +123,10 @@ public class GAGuidance implements Guidance {
 
     protected ICoverage firstGenerationCoverage = CoverageFactory.newInstance();
 
-    /** just for testing purpose */
     protected ICoverage validCoverage = CoverageFactory.newInstance();
 
     /** The set of unique failures found so far. */
     protected Set<String> uniqueFailures = new HashSet<>();
-
-    /** save crash to specific location (should be used with EXIT_ON_CRASH) **/
-    protected final String EXACT_CRASH_PATH = System.getProperty("jqf.ei.EXACT_CRASH_PATH");
 
     // ---------- LOGGING / STATS OUTPUT ------------
 
@@ -281,8 +257,6 @@ public class GAGuidance implements Guidance {
         this.maxDurationMillis = duration != null ? duration.toMillis() : Long.MAX_VALUE;
         this.maxTrials = trials != null ? trials : Long.MAX_VALUE;
         this.outputDirectory = outputDirectory;
-        this.blind = Boolean.getBoolean("jqf.ei.TOTALLY_RANDOM");
-        this.validityFuzzing = !Boolean.getBoolean("jqf.ei.DISABLE_VALIDITY_FUZZING");
         prepareOutputDirectory();
 
         if (this.runCoverage instanceof FastCoverageListener) {
@@ -302,71 +276,6 @@ public class GAGuidance implements Guidance {
     }
 
     /**
-     * Creates a new GA guidance instance with seed input files and optional
-     * duration, optional trial limit, an possibly deterministic PRNG.
-     *
-     * @param testName           the name of test to display on the status screen
-     * @param duration           the amount of time to run fuzzing for, where
-     *                           {@code null} indicates unlimited time.
-     * @param trials             the number of trials for which to run fuzzing,
-     *                           where
-     *                           {@code null} indicates unlimited trials.
-     * @param outputDirectory    the directory where fuzzing results will be written
-     * @param seedInputFiles     one or more input files to be used as initial
-     *                           inputs
-     * @param sourceOfRandomness a pseudo-random number generator
-     * @throws IOException if the output directory could not be prepared
-     */
-    public GAGuidance(String testName, Duration duration, Long trials, File outputDirectory, File[] seedInputFiles,
-            Random sourceOfRandomness) throws IOException {
-        this(testName, duration, trials, outputDirectory, sourceOfRandomness);
-        if (seedInputFiles != null) {
-            for (File seedInputFile : seedInputFiles) {
-                // seedInputs.add(new SeedInput(seedInputFile));
-            }
-        }
-    }
-
-    /**
-     * Creates a new GA guidance instance with seed input directory and optional
-     * duration, optional trial limit, an possibly deterministic PRNG.
-     *
-     * @param testName           the name of test to display on the status screen
-     * @param duration           the amount of time to run fuzzing for, where
-     *                           {@code null} indicates unlimited time.
-     * @param trials             the number of trials for which to run fuzzing,
-     *                           where
-     *                           {@code null} indicates unlimited trials.
-     * @param outputDirectory    the directory where fuzzing results will be written
-     * @param seedInputDir       the directory containing one or more input files to
-     *                           be used as initial inputs
-     * @param sourceOfRandomness a pseudo-random number generator
-     * @throws IOException if the output directory could not be prepared
-     */
-    public GAGuidance(String testName, Duration duration, Long trials, File outputDirectory, File seedInputDir,
-            Random sourceOfRandomness) throws IOException {
-        this(testName, duration, trials, outputDirectory, IOUtils.resolveInputFileOrDirectory(seedInputDir),
-                sourceOfRandomness);
-    }
-
-    /**
-     * Creates a new GA guidance instance with seed inputs and
-     * optional duration.
-     *
-     * @param testName        the name of test to display on the status screen
-     * @param duration        the amount of time to run fuzzing for, where
-     *                        {@code null} indicates unlimited time.
-     * @param outputDirectory the directory where fuzzing results will be written
-     * @param seedInputDir    the directory containing one or more input files to be
-     *                        used as initial inputs
-     * @throws IOException if the output directory could not be prepared
-     */
-    public GAGuidance(String testName, Duration duration, File outputDirectory, File seedInputDir)
-            throws IOException {
-        this(testName, duration, null, outputDirectory, seedInputDir, new Random());
-    }
-
-    /**
      * Creates a new GA guidance instance with seed inputs and
      * optional duration.
      *
@@ -378,21 +287,6 @@ public class GAGuidance implements Guidance {
      */
     public GAGuidance(String testName, Duration duration, File outputDirectory) throws IOException {
         this(testName, duration, null, outputDirectory, new Random());
-    }
-
-    /**
-     * Creates a new GA guidance instance with seed inputs and
-     * optional duration.
-     *
-     * @param testName        the name of test to display on the status screen
-     * @param duration        the amount of time to run fuzzing for, where
-     *                        {@code null} indicates unlimited time.
-     * @param outputDirectory the directory where fuzzing results will be written
-     * @throws IOException if the output directory could not be prepared
-     */
-    public GAGuidance(String testName, Duration duration, File outputDirectory, File[] seedFiles)
-            throws IOException {
-        this(testName, duration, null, outputDirectory, seedFiles, new Random());
     }
 
     private void prepareOutputDirectory() throws IOException {
@@ -923,7 +817,6 @@ public class GAGuidance implements Guidance {
                 }
             }
 
-            //this.numTrials++;
             displayStats(false);
         });
 
@@ -1028,11 +921,6 @@ public class GAGuidance implements Guidance {
             return new LinearInput(this);
         }
 
-        /** get values */
-        public ArrayList<Integer> getValues() {
-            return this.values;
-        }
-
         /** set fitness */
         public void setFitness(int fitness) {
             this.fitness = fitness;
@@ -1051,24 +939,11 @@ public class GAGuidance implements Guidance {
         }
 
         public void mutate() {
-            // mutating
-            //int choice = (int) (Math.random() * 3);
             int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
             //int index = (binomial.sample() * size) / 10;
             int index = (int) (Math.random() * size);
             int gene = (int) (Math.random() * 255);
-            /* 
-            if (choice == 0) {
-                // add
-                this.values.add(index, gene);
-            } else if (choice == 1 && this.size() > 0) {
-                // remove
-                this.values.remove(index);
-            } else if (choice == 2 && this.size() > 0) {
-                // replace
-            */
-                this.values.set(index, gene);
-            //}
+            this.values.set(index, gene);
         }
 
         @Override
@@ -1129,44 +1004,9 @@ public class GAGuidance implements Guidance {
             }
         }
         
-        /**
-         * clears the whole input
-         * 
-         */
-        public void clear() {
-            this.values.clear();
-        }
-
         @Override
         public Input fuzz(Random random) {
-            // Clone this input to create initial version of new child
-            LinearInput newInput = new LinearInput(this);
-
-            // Stack a bunch of mutations
-            int numMutations = sampleGeometric(random, MEAN_MUTATION_COUNT);
-
-            boolean setToZero = random.nextDouble() < 0.1; // one out of 10 times
-
-            for (int mutation = 1; mutation <= numMutations; mutation++) {
-
-                // Select a random offset and size
-                int offset = random.nextInt(newInput.values.size());
-                int mutationSize = sampleGeometric(random, MEAN_MUTATION_SIZE);
-
-                // Mutate a contiguous set of bytes from offset
-                for (int i = offset; i < offset + mutationSize; i++) {
-                    // Don't go past end of list
-                    if (i >= newInput.values.size()) {
-                        break;
-                    }
-
-                    // Otherwise, apply a random mutation
-                    int mutatedValue = setToZero ? 0 : random.nextInt(256);
-                    newInput.values.set(i, mutatedValue);
-                }
-            }
-
-            return newInput;
+            return null;
         }
 
         @Override
@@ -1174,5 +1014,4 @@ public class GAGuidance implements Guidance {
             return values.iterator();
         }
     }
-
 }
