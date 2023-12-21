@@ -238,9 +238,15 @@ public class GAGuidance implements Guidance {
     /** Mean number of contiguous bytes to mutate in each mutation. */
     protected final double MEAN_MUTATION_SIZE = 4.0; // Bytes
 
-    protected final int POPULATION_SIZE = Integer.getInteger("jqf.ei.POPULATION_SIZE", 5000);
+    protected final int POPULATION_SIZE = Integer.parseInt(System.getProperty("jqf.ga.POPULATION_SIZE", "5000"));
 
     protected final int INITIAL_VALUE_SIZE = Integer.getInteger("jqf.ei.INITIAL_VALUE_SIZE", 10);
+
+    protected final double MUTATION_RATE = Double.parseDouble(System.getProperty("jqf.ga.MUTATION_RATE", "0.99"));
+
+    protected final double CROSSOVER_RATE = Double.parseDouble(System.getProperty("jqf.ga.CROSSOVER_RATE", "0.6"));
+
+    protected final char SELECTION_STRATEGY = System.getProperty("jqf.ga.SELECTION_STRATEGY", "r").charAt(0);   
 
     protected int genCounter = 0;
 
@@ -715,15 +721,10 @@ public class GAGuidance implements Guidance {
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
                     this.population.set(i, entry);
-                    entry.clear();
                     break;
                 }
             }
         }
-
-        // delete populationCopy
-        populationCopy.clear();
-        System.gc();
     }
 
     /**
@@ -749,12 +750,22 @@ public class GAGuidance implements Guidance {
             this.firstGenerationCoverage = generationCoverage.copy();
         }
 
-        totalRandomSelection();
-        //fitnessProportionalSelection();
-        //rankBasedSelection();
-        //tournamentSelection();
-        crossover(0.6);
-        mutate(0.99);
+        switch (SELECTION_STRATEGY) {
+            case 't':
+                tournamentSelection();
+                break;
+            case 'r':
+                rankBasedSelection();
+                break;
+            case 'f':
+                fitnessProportionalSelection();
+                break;
+            default:
+                break;
+        }
+
+        crossover(CROSSOVER_RATE);
+        mutate(MUTATION_RATE);
 
         this.candidate = getCandidateFromPopulation();
         this.counter++;
@@ -1044,7 +1055,7 @@ public class GAGuidance implements Guidance {
             //int choice = (int) (Math.random() * 3);
             int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
             //int index = (binomial.sample() * size) / 10;
-            int index = (int) (Math.random() * this.values.size());
+            int index = (int) (Math.random() * size);
             int gene = (int) (Math.random() * 255);
             /* 
             if (choice == 0) {

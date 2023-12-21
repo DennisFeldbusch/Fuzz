@@ -11,7 +11,7 @@ print_usage() {
   echo "Usage: $0 [-c CLASSPATH] [-v] TEST_CLASS TEST_METHOD [OUT_DIR [SEED_FILES...]]"
 }
 
-while getopts ":c:vt:" opt; do
+while getopts ":c:vt:p:m:x:s:" opt; do
   case $opt in
     /?)
       echo "Invalid option: -$OPTARG" >&2
@@ -26,6 +26,19 @@ while getopts ":c:vt:" opt; do
       ;;
     t)
       export JVM_OPTS="$JVM_OPTS -Djqf.ei.TIMEOUT=$OPTARG"
+      ;;
+    p)
+      export JVM_OPTS="$JVM_OPTS -Djqf.ga.POPULATION_SIZE=$OPTARG"
+      echo "Population size set to $OPTARG"
+      ;;
+    m)
+      export JVM_OPTS="$JVM_OPTS -Djqf.ga.MUTATION_RATE=$OPTARG"
+      ;;
+    x)
+      export JVM_OPTS="$JVM_OPTS -Djqf.ga.CROSSOVER_RATE=$OPTARG"
+      ;;
+    s)
+      export JVM_OPTS="$JVM_OPTS -Djqf.ga.SELECTION_STRATEGY=$OPTARG"
       ;;
   esac
 done
