@@ -433,7 +433,7 @@ public class GAGuidance implements Guidance {
             }
         }
 
-        String plotData = String.format("%d\t%d\t%d\t%d", elapsedMilliseconds , nonZeroCount, uniqueFailures.size(), newBranchesInGeneration);
+        String plotData = String.format("%d\t%d\t%d\t%d", elapsedMilliseconds / 1000 , nonZeroCount, uniqueFailures.size(), newBranchesInGeneration);
         appendLineToFile(statsFile, plotData);
     }
 
@@ -448,7 +448,9 @@ public class GAGuidance implements Guidance {
      * 
      */
     protected void initializePopulation() {
-        console.printf("Initializing population\n");
+        if (console != null) {
+            console.printf("Initializing population\n");
+        }
         for (int i = 0; i < POPULATION_SIZE; i++) {
             this.population.add(new LinearInput(INITIAL_VALUE_SIZE));
         }
