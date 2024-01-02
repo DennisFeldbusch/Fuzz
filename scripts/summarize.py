@@ -56,8 +56,6 @@ for filename in filenames:
 
     i = i + 1
 
-#print(values)
-
 f = open('../results/'+path+'/result-plot_data-avg', 'w')
 
 values = np.array(values)

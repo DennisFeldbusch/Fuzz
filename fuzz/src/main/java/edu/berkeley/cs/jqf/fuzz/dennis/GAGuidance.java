@@ -656,6 +656,9 @@ public class GAGuidance implements Guidance {
             case 'f':
                 fitnessProportionalSelection();
                 break;
+            case 'z':
+                totalRandomSelection();
+                break;
             default:
                 break;
         }
