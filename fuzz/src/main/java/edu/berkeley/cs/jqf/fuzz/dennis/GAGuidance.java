@@ -621,6 +621,7 @@ public class GAGuidance implements Guidance {
                 }
             }
         }
+        System.gc();
     }
 
     /**
