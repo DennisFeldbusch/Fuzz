@@ -234,7 +234,7 @@ public class GAGuidance implements Guidance {
 
     protected int counter;
 
-    protected static BinomialDistribution binomial = new BinomialDistribution(5000, 0.5);
+    //protected static BinomialDistribution binomial = new BinomialDistribution(5000, 0.5);
 
     /**
      * Creates a new GA guidance instance with optional duration,
@@ -499,8 +499,12 @@ public class GAGuidance implements Guidance {
             //int sizeTwo = secondCandidate.size() == 0 ? 0 : secondCandidate.size()-1;
             //int firstCrossoverPoint = (binomial.sample() * sizeOne) / 10;
             //int secondCrossoverPoint = (binomial.sample() * sizeTwo) / 10;
-            int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
-            int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
+            BinomialDistribution binomial1 = new BinomialDistribution(firstCandidate.size(), 0.5);
+            BinomialDistribution binomial2 = new BinomialDistribution(secondCandidate.size(), 0.5);
+            int firstCrossoverPoint = binomial1.sample();
+            int secondCrossoverPoint = binomial2.sample();
+            //int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
+            //int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
             LinearInput newFirstCandidate = new LinearInput();
             newFirstCandidate.setFitness(firstCandidate.getFitness());
             LinearInput newSecondCandidate = new LinearInput();
@@ -611,8 +615,8 @@ public class GAGuidance implements Guidance {
         // select a random entry with respect to the corresponding fitness compared to
         // the total fitness
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            //int randomFitness = (int) (Math.random() * totalFitness);
-            int randomFitness = (binomial.sample() * totalFitness) / POPULATION_SIZE;
+            int randomFitness = (int) (Math.random() * totalFitness);
+            //int randomFitness = (binomial.sample() * totalFitness) / POPULATION_SIZE;
             //int randomFitness = (geometric.sample() % totalFitness);
             for (LinearInput entry : populationCopy) {
                 if (randomFitness <= entry.getFitness()) {
