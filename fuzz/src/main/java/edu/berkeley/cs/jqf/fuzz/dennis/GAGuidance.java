@@ -499,12 +499,14 @@ public class GAGuidance implements Guidance {
             //int sizeTwo = secondCandidate.size() == 0 ? 0 : secondCandidate.size()-1;
             //int firstCrossoverPoint = (binomial.sample() * sizeOne) / 10;
             //int secondCrossoverPoint = (binomial.sample() * sizeTwo) / 10;
+            /* 
             BinomialDistribution binomial1 = new BinomialDistribution(firstCandidate.size(), 0.5);
             BinomialDistribution binomial2 = new BinomialDistribution(secondCandidate.size(), 0.5);
             int firstCrossoverPoint = binomial1.sample();
             int secondCrossoverPoint = binomial2.sample();
-            //int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
-            //int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
+            */
+            int firstCrossoverPoint = (int) (Math.random() * firstCandidate.size());
+            int secondCrossoverPoint = (int) (Math.random() * secondCandidate.size());
             LinearInput newFirstCandidate = new LinearInput();
             newFirstCandidate.setFitness(firstCandidate.getFitness());
             LinearInput newSecondCandidate = new LinearInput();
@@ -951,7 +953,9 @@ public class GAGuidance implements Guidance {
         public void mutate() {
             int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
             //int index = (binomial.sample() * size) / 10;
-            int index = (int) (Math.random() * size);
+            //int index = (int) (Math.random() * size);
+            BinomialDistribution binomial = new BinomialDistribution(size, 0.5);
+            int index = binomial.sample();
             int gene = (int) (Math.random() * 255);
             this.values.set(index, gene);
         }
