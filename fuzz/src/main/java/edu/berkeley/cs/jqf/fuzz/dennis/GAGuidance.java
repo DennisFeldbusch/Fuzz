@@ -234,7 +234,7 @@ public class GAGuidance implements Guidance {
 
     protected int counter;
 
-    //protected static BinomialDistribution binomial = new BinomialDistribution(5000, 0.5);
+    protected static BinomialDistribution binomial = new BinomialDistribution(5000, 0.5);
 
     /**
      * Creates a new GA guidance instance with optional duration,
@@ -488,10 +488,13 @@ public class GAGuidance implements Guidance {
     protected void crossover(double crossoverRate) {
         int numberOfCrossovers = (int) Math.round(crossoverRate * this.population.size());
         for (int i = 0; i < numberOfCrossovers; i++) {
-            int firstIndex = (int) (Math.random() * this.population.size());
-            int secondIndex = (int) (Math.random() * this.population.size());
+            int firstIndex = binomial.sample();
+            //int firstIndex = (int) (Math.random() * this.population.size());
+            int secondIndex = binomial.sample();
+            //int secondIndex = (int) (Math.random() * this.population.size());
             while (firstIndex == secondIndex) {
-                secondIndex = (int) (Math.random() * this.population.size());
+                secondIndex = binomial.sample();
+                //secondIndex = (int) (Math.random() * this.population.size());
             }
             LinearInput firstCandidate = this.population.get(firstIndex).copy();
             LinearInput secondCandidate = this.population.get(secondIndex).copy();
@@ -953,9 +956,9 @@ public class GAGuidance implements Guidance {
         public void mutate() {
             int size = this.values.size() == 0 ? 0 : this.values.size() - 1;
             //int index = (binomial.sample() * size) / 10;
-            //int index = (int) (Math.random() * size);
-            BinomialDistribution binomial = new BinomialDistribution(size, 0.5);
-            int index = binomial.sample();
+            int index = (int) (Math.random() * size);
+            //BinomialDistribution binomial = new BinomialDistribution(size, 0.5);
+            //int index = binomial.sample();
             int gene = (int) (Math.random() * 255);
             this.values.set(index, gene);
         }
